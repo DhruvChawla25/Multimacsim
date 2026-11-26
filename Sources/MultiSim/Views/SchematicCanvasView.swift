@@ -723,6 +723,8 @@ public struct SchematicCanvasView: View {
             return "⇅ \(EngineeringFormatter.voltage(comp.param("lowerThreshold"))) / \(EngineeringFormatter.voltage(comp.param("upperThreshold")))"
         case .slewRateBlock:
             return "SR ↑\(EngineeringFormatter.units(comp.value, "V/s"))"
+        case .polynomialBlock:
+            return "P(x), \(max(ControlBlocks.coefficients(comp.textValue)?.count ?? 1, 1) - 1). order"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

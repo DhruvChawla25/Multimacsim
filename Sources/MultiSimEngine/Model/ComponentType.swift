@@ -90,6 +90,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case limiterBlock = "Voltage Limiter"
     case hysteresisBlock = "Voltage Hysteresis Block"
     case slewRateBlock = "Voltage Slew Rate Block"
+    case polynomialBlock = "Polynomial Voltage Block"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -183,6 +184,8 @@ extension ComponentKind {
             return .controlFunctionBlocks
         case .slewRateBlock:
             return .controlFunctionBlocks
+        case .polynomialBlock:
+            return .controlFunctionBlocks
         case .probe:
             return .probes
         }
@@ -259,6 +262,7 @@ extension ComponentKind {
         case .limiterBlock: return "A"
         case .hysteresisBlock: return "A"
         case .slewRateBlock: return "A"
+        case .polynomialBlock: return "A"
         case .probe: return "P"
         }
     }
@@ -342,6 +346,7 @@ extension ComponentKind {
         case .limiterBlock: return "Limiter (clip)"
         case .hysteresisBlock: return "Hysteresis (Schmitt)"
         case .slewRateBlock: return "Slew Rate Limiter"
+        case .polynomialBlock: return "Polynomial P(x)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -422,6 +427,7 @@ extension ComponentKind {
         case .limiterBlock: return "rectangle.compress.vertical"
         case .hysteresisBlock: return "arrow.left.arrow.right.square"
         case .slewRateBlock: return "speedometer"
+        case .polynomialBlock: return "function"
         case .probe: return "pin"
         }
     }
@@ -628,6 +634,7 @@ extension ComponentKind {
         case .limiterBlock: return PartDefaults(value: 1)
         case .hysteresisBlock: return PartDefaults()
         case .slewRateBlock: return PartDefaults(value: 1e3)
+        case .polynomialBlock: return PartDefaults()
         default: return PartDefaults()
         }
     }
@@ -685,6 +692,7 @@ extension ComponentKind {
         case .limiterBlock: return "Gain K:"
         case .hysteresisBlock: return "Value:"
         case .slewRateBlock: return "Rising Slew Rate (V/s):"
+        case .polynomialBlock: return "Value:"
         default: return "Value:"
         }
     }

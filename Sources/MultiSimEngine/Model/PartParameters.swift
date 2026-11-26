@@ -184,6 +184,9 @@ extension ComponentKind {
     /// Free-text setting, if the part has one.
     public var textParameter: TextParameter? {
         switch self {
+        case .polynomialBlock:
+            return TextParameter(label: "Coefficients a0, a1, a2, ... (V(out) = a0 + a1·x + a2·x² + ...):", defaultText: "0, 1, 0.5",
+                                 help: "Comma or space separated, lowest power first. Engineering suffixes allowed (2m = 0.002).")
         case .abmVoltage, .abmCurrent:
             return TextParameter(label: self == .abmVoltage ? "Output voltage V(+,-) =" : "Output current (out of OUT) =",
                                  defaultText: self == .abmVoltage ? "5*sin(2*pi*50*time)" : "1m*sin(2*pi*50*time)",

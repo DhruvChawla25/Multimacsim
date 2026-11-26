@@ -131,6 +131,8 @@ extension ComponentKind {
                 return nil
             case .slewRateBlock:
                 return ParameterSpec(label: label, unit: "V/s", range: 1e-6...1e12, sliderRange: 1...1e7, isLogarithmic: true, usesESeries: false)
+            case .polynomialBlock:
+                return nil
             case .bjtNPN, .bjtPNP:
                 return nil
             }

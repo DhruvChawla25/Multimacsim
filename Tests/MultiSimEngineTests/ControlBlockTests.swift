@@ -149,4 +149,13 @@ final class ControlBlockTests: XCTestCase {
         for _ in 0..<40 { res = solver.step() } // reached the input and follows it
         XCTAssertEqual(bench.voltage(sr.pins[1], res), 5.0, accuracy: 1e-9)
     }
+
+    func testPolynomialBlock() {
+        let (bench, b, _, _) = block(.polynomialBlock, inputs: [2], text: "1, -3, 0.5, 0.25")
+        XCTAssertEqual(output(bench, b, bench.solver().step()), 1 - 6 + 2 + 2, accuracy: 1e-9)
+        XCTAssertNil(b.textValidationError)
+        b.text = "1, x"
+        XCTAssertNotNil(b.textValidationError)
+        XCTAssertEqual(ControlBlocks.coefficients("0 1m 2k"), [0, 0.001, 2000])
+    }
 }

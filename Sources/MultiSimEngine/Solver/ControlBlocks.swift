@@ -34,6 +34,8 @@ public enum ControlBlocks {
     public static func label(_ kind: ComponentKind) -> String {
         switch kind {
         // <labels>
+        case .polynomialBlock:
+            return "P(x)"
         case .slewRateBlock:
             return "SR"
         case .hysteresisBlock:
@@ -68,6 +70,15 @@ public enum ControlBlocks {
         let zero = [Double](repeating: 0, count: u.count)
         switch comp.kind {
         // <eval>
+        case .polynomialBlock:
+            // V(out) = a0 + a1·u + a2·u² + ... (Horner, with the derivative alongside)
+            let a = coefficients(comp.textValue) ?? [0]
+            var y = 0.0, dy = 0.0
+            for c in a.reversed() {
+                dy = dy * u[0] + y
+                y = y * u[0] + c
+            }
+            return Linearized(value: y, partials: [dy])
         case .slewRateBlock:
             // Output follows the input but moves at most SR·h per step (rising and falling rates separately).
             let yPrev = comp.runtimeState.first ?? u[0]
@@ -178,6 +189,10 @@ public enum ControlBlocks {
         let out = nodes.last ?? "0"
         switch comp.kind {
         // <spice>
+        case .polynomialBlock:
+            let a = coefficients(comp.textValue) ?? [0]
+            let terms = a.enumerated().map { "\($0.element)*pow(\(ins[0]),\($0.offset))" }.joined(separator: "+")
+            return "B\(name) \(out) 0 V={\(terms)}"
         case .limiterBlock:
             let lo = min(comp.param("lower"), comp.param("upper")), hi = max(comp.param("lower"), comp.param("upper"))
             return "B\(name) \(out) 0 V={min(max(\(comp.value)*\(ins[0]),\(lo)),\(hi))}"
@@ -200,6 +215,8 @@ public enum ControlBlocks {
     static func textError(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
         // <text>
+        case .polynomialBlock:
+            return coefficients(comp.textValue) == nil ? "Enter one or more numbers, lowest power first (e.g. 0, 1, 0.5)." : nil
         default:
             return nil
         }
@@ -214,6 +231,18 @@ public enum ControlBlocks {
         if high && u < lower { high = false }
         if !high && u > upper { high = true }
         return (high, high ? comp.param("outHigh") : comp.param("outLow"))
+    }
+
+    /// Polynomial coefficients, lowest power first; nil if the text is not a list of numbers.
+    public static func coefficients(_ text: String) -> [Double]? {
+        let tokens = text.split(whereSeparator: { " ,;\n\t".contains($0) })
+        guard !tokens.isEmpty else { return nil }
+        var out: [Double] = []
+        for t in tokens {
+            guard let v = EngineeringUnitParser.parse(String(t)) else { return nil }
+            out.append(v)
+        }
+        return out
     }
 
     /// Clamps `v` into [lo, hi] (either order) and reports whether it was inside.
