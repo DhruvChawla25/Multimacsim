@@ -88,4 +88,22 @@ final class ControlBlockTests: XCTestCase {
         XCTAssertEqual(out.magnitude, 1, accuracy: 1e-9)
         XCTAssertEqual(out.angleDegrees, -90, accuracy: 1e-9)
     }
+
+    func testDifferentiatorOfARampIsConstant() throws {
+        let bench = TestBench()
+        let ramp = bench.add(.pwlVoltage, "VR")
+        ramp.text = "0 0\n10m 5"           // 500 V/s
+        ramp.parameters = ["period": 0]
+        let d = bench.add(.differentiatorBlock, "A1", value: 2e-3)
+        bench.wire(ramp.pins[0], d.pins[0]); bench.ground(ramp.pins[1])
+        let solver = bench.solver(dt: 1e-4)
+        var res = solver.step()
+        for _ in 0..<20 { res = solver.step() }
+        XCTAssertEqual(bench.voltage(d.pins[1], res), 2e-3 * 500, accuracy: 1e-6)
+        let (ab, ablk, _, _) = block(.differentiatorBlock, value: 1e-3, inputs: [1], source: .acVoltageSource, secondary: 1000)
+        let ac = try ACSteadyStateAnalyzer.analyze(ab.circuit).get()
+        let out = ac.nodeVoltage(ab.node(ablk.pins[1]))
+        XCTAssertEqual(out.magnitude, 2 * .pi, accuracy: 1e-9)
+        XCTAssertEqual(out.angleDegrees, 90, accuracy: 1e-9)
+    }
 }

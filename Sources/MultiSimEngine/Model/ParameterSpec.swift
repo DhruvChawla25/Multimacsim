@@ -123,6 +123,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "", range: -1e9...1e9, sliderRange: -100...100, isLogarithmic: false, usesESeries: false)
             case .integratorBlock:
                 return ParameterSpec(label: label, unit: "1/s", range: -1e12...1e12, sliderRange: -1e4...1e4, isLogarithmic: false, usesESeries: false)
+            case .differentiatorBlock:
+                return ParameterSpec(label: label, unit: "s", range: -1e6...1e6, sliderRange: -1...1, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }

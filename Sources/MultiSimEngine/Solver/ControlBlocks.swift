@@ -34,6 +34,8 @@ public enum ControlBlocks {
     public static func label(_ kind: ComponentKind) -> String {
         switch kind {
         // <labels>
+        case .differentiatorBlock:
+            return "d/dt"
         case .integratorBlock:
             return "∫"
         case .summerBlock:
@@ -60,6 +62,12 @@ public enum ControlBlocks {
         let zero = [Double](repeating: 0, count: u.count)
         switch comp.kind {
         // <eval>
+        case .differentiatorBlock:
+            // y = K·du/dt, backward difference (y = K·(u − u_n)/h): trapezoidal differentiation would ring.
+            guard h > 0, let uPrev = comp.runtimeState.first else { return Linearized(value: 0, partials: [0]) }
+            let k = comp.value
+            let (y, inside) = clamp(k * (u[0] - uPrev) / h, comp.param("lower"), comp.param("upper"))
+            return Linearized(value: y, partials: [inside ? k / h : 0])
         case .integratorBlock:
             // y(t) = K·∫(u + input offset)dt + V0, trapezoidal: y = y_n + K·h/2·(u_n + u), held inside the limits.
             let k = comp.value, off = comp.param("inOffset")
@@ -103,6 +111,8 @@ public enum ControlBlocks {
     static func accept(_ comp: CircuitComponent, inputs u: [Double], output y: Double, h: Double) {
         switch comp.kind {
         // <accept>
+        case .differentiatorBlock:
+            comp.runtimeState = [u[0]]
         case .integratorBlock:
             comp.runtimeState = [y, u[0]]
         default:
@@ -116,6 +126,9 @@ public enum ControlBlocks {
     static func acGains(_ comp: CircuitComponent, omega: Double, op: [Double]?) -> [Complex]? {
         switch comp.kind {
         // <ac>
+        case .differentiatorBlock:
+            // K·jω
+            return [Complex(0, comp.value * omega)]
         case .integratorBlock:
             // K / jω
             return [Complex(comp.value) / Complex(0, max(omega, 1e-30))]

@@ -155,6 +155,11 @@ extension ComponentKind {
                 ExtraParameter("upper", .linear("Output Upper Limit:", "V", -1e6...1e6, slider: -50...50), default: 100),
                 ExtraParameter("lower", .linear("Output Lower Limit:", "V", -1e6...1e6, slider: -50...50), default: -100),
             ]
+        case .differentiatorBlock:
+            return [
+                ExtraParameter("upper", .linear("Output Upper Limit:", "V", -1e6...1e6, slider: -50...50), default: 100),
+                ExtraParameter("lower", .linear("Output Lower Limit:", "V", -1e6...1e6, slider: -50...50), default: -100),
+            ]
         default:
             return []
         }
