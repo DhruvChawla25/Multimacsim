@@ -114,6 +114,8 @@ enum SourceWaveforms {
             return pulse(for: comp)?.value(at: t) ?? 0
         case .whiteNoiseVoltage:
             return comp.param("offset") + noise(comp, at: t)
+        case .acCurrentSource:
+            return comp.value * sin(2.0 * .pi * frequency(comp, fallback: 1000) * t)
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -149,6 +151,8 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .acCurrentSource:
+            return "SIN(0 \(comp.value) \(frequency(comp, fallback: 1000))) AC \(comp.value)"
         case .whiteNoiseVoltage:
             // ngspice transient noise: TRNOISE(rms, sample interval, 0, 0)
             return "TRNOISE(\(comp.value) \(1 / (2 * frequency(comp, fallback: 1000))) 0 0)"
@@ -277,6 +281,8 @@ enum SourceWaveforms {
     /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.
     static func fundamentalFrequency(_ comp: CircuitComponent) -> Double? {
         switch comp.kind {
+        case .acCurrentSource:
+            return frequency(comp, fallback: 1000)
         case .whiteNoiseVoltage:
             return frequency(comp, fallback: 1000) / 100
         case .bipolarVoltage:

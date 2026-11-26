@@ -686,6 +686,8 @@ public struct SchematicCanvasView: View {
             return "±\(EngineeringFormatter.voltage(comp.value)) @ \(EngineeringFormatter.units(comp.secondaryValue, "Hz"))"
         case .whiteNoiseVoltage:
             return "Noise \(EngineeringFormatter.voltage(comp.value)) RMS\nBW \(EngineeringFormatter.units(comp.secondaryValue, "Hz"))"
+        case .acCurrentSource:
+            return "\(EngineeringFormatter.current(comp.value)) pk\n\(EngineeringFormatter.units(comp.secondaryValue > 0 ? comp.secondaryValue : 1000, "Hz"))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

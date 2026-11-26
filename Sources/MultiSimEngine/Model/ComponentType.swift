@@ -68,6 +68,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case pulseVoltage = "Pulse Voltage Source"
     case bipolarVoltage = "Bipolar Voltage Source"
     case whiteNoiseVoltage = "White Noise Voltage Source"
+    case acCurrentSource = "AC Current Source"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -127,6 +128,8 @@ extension ComponentKind {
             return .signalVoltageSources
         case .whiteNoiseVoltage:
             return .signalVoltageSources
+        case .acCurrentSource:
+            return .signalCurrentSources
         case .probe:
             return .probes
         }
@@ -184,6 +187,7 @@ extension ComponentKind {
         case .pulseVoltage: return "V"
         case .bipolarVoltage: return "V"
         case .whiteNoiseVoltage: return "V"
+        case .acCurrentSource: return "I"
         case .probe: return "P"
         }
     }
@@ -246,6 +250,7 @@ extension ComponentKind {
         case .pulseVoltage: return "Pulse Voltage"
         case .bipolarVoltage: return "Bipolar Voltage (±V square)"
         case .whiteNoiseVoltage: return "White Noise Voltage"
+        case .acCurrentSource: return "AC Current Source"
         case .probe: return "Voltage Probe"
         }
     }
@@ -305,6 +310,7 @@ extension ComponentKind {
         case .pulseVoltage: return "square.on.square.dashed"
         case .bipolarVoltage: return "plusminus.circle"
         case .whiteNoiseVoltage: return "waveform.badge.magnifyingglass"
+        case .acCurrentSource: return "waveform.circle"
         case .probe: return "pin"
         }
     }
@@ -388,6 +394,7 @@ extension ComponentKind {
     /// Two-terminal independent current sources; current leaves pin 0, where the arrow points.
     public var isWaveformCurrentSource: Bool {
         switch self {
+        case .acCurrentSource: return true
         case .dcCurrentSource:
             return true
         default:
@@ -478,6 +485,7 @@ extension ComponentKind {
         case .pulseVoltage: return PartDefaults(value: 5)
         case .bipolarVoltage: return PartDefaults(value: 5, secondaryValue: 1000)
         case .whiteNoiseVoltage: return PartDefaults(value: 1, secondaryValue: 1000)
+        case .acCurrentSource: return PartDefaults(value: 0.01, secondaryValue: 1000)
         default: return PartDefaults()
         }
     }
@@ -518,6 +526,7 @@ extension ComponentKind {
         case .pulseVoltage: return "Pulsed Value V2 (V):"
         case .bipolarVoltage: return "Amplitude ±V (V):"
         case .whiteNoiseVoltage: return "Noise RMS Voltage (V):"
+        case .acCurrentSource: return "Peak Current (A):"
         default: return "Value:"
         }
     }
@@ -533,6 +542,7 @@ extension ComponentKind {
         case .wattmeter: return "Pressure-Coil Resistance (Ω):"
         case .zenerDiode: return "Zener Breakdown (V):"
         case .bjtNPN, .bjtPNP: return "Current Gain (β / hFE):"
+        case .acCurrentSource: return "Frequency (Hz):"
         case .whiteNoiseVoltage: return "Bandwidth (Hz):"
         case .bipolarVoltage: return "Frequency (Hz):"
         case .fmVoltage: return "Carrier Frequency (Hz):"

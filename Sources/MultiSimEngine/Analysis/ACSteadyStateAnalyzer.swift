@@ -432,6 +432,8 @@ public enum ACSteadyStateAnalyzer {
             return comp.secondaryValue > 0 ? comp.secondaryValue : 1000.0
         case .threePhaseWye, .threePhaseDelta:
             return comp.secondaryValue > 0 ? comp.secondaryValue : 50.0
+        case .acCurrentSource:
+            return comp.secondaryValue > 0 ? comp.secondaryValue : 1000.0
         default:
             return nil
         }
