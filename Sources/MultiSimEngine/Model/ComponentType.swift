@@ -85,6 +85,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case multiplierBlock = "Voltage Multiplier"
     case dividerBlock = "Voltage Divider Block"
     case summerBlock = "Voltage Summer"
+    case integratorBlock = "Voltage Integrator"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -168,6 +169,8 @@ extension ComponentKind {
             return .controlFunctionBlocks
         case .summerBlock:
             return .controlFunctionBlocks
+        case .integratorBlock:
+            return .controlFunctionBlocks
         case .probe:
             return .probes
         }
@@ -239,6 +242,7 @@ extension ComponentKind {
         case .multiplierBlock: return "A"
         case .dividerBlock: return "A"
         case .summerBlock: return "A"
+        case .integratorBlock: return "A"
         case .probe: return "P"
         }
     }
@@ -317,6 +321,7 @@ extension ComponentKind {
         case .multiplierBlock: return "Multiplier (X·Y)"
         case .dividerBlock: return "Divider (X / Y)"
         case .summerBlock: return "Summer (A + B + C)"
+        case .integratorBlock: return "Integrator (∫)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -392,6 +397,7 @@ extension ComponentKind {
         case .multiplierBlock: return "xmark.circle"
         case .dividerBlock: return "divide.circle"
         case .summerBlock: return "sum"
+        case .integratorBlock: return "sum"
         case .probe: return "pin"
         }
     }
@@ -593,6 +599,7 @@ extension ComponentKind {
         case .multiplierBlock: return PartDefaults(value: 1)
         case .dividerBlock: return PartDefaults(value: 1)
         case .summerBlock: return PartDefaults(value: 1)
+        case .integratorBlock: return PartDefaults(value: 1000)
         default: return PartDefaults()
         }
     }
@@ -645,6 +652,7 @@ extension ComponentKind {
         case .multiplierBlock: return "Output Gain K:"
         case .dividerBlock: return "Output Gain K:"
         case .summerBlock: return "Output Gain K:"
+        case .integratorBlock: return "Integrator Gain K (1/s):"
         default: return "Value:"
         }
     }

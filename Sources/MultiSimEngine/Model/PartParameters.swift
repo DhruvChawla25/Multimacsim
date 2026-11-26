@@ -148,6 +148,13 @@ extension ComponentKind {
                 ExtraParameter("cGain", .linear("Input C Gain:", "", -1e6...1e6, slider: -10...10), default: 1),
                 ExtraParameter("outOffset", .linear("Output Offset:", "V", -1000...1000, slider: -10...10), default: 0),
             ]
+        case .integratorBlock:
+            return [
+                ExtraParameter("initial", .linear("Initial Output V0:", "V", -1e6...1e6, slider: -10...10), default: 0),
+                ExtraParameter("inOffset", .linear("Input Offset:", "V", -1000...1000, slider: -10...10), default: 0),
+                ExtraParameter("upper", .linear("Output Upper Limit:", "V", -1e6...1e6, slider: -50...50), default: 100),
+                ExtraParameter("lower", .linear("Output Lower Limit:", "V", -1e6...1e6, slider: -50...50), default: -100),
+            ]
         default:
             return []
         }

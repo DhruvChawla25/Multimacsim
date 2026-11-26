@@ -34,6 +34,8 @@ public enum ControlBlocks {
     public static func label(_ kind: ComponentKind) -> String {
         switch kind {
         // <labels>
+        case .integratorBlock:
+            return "∫"
         case .summerBlock:
             return "Σ"
         case .dividerBlock:
@@ -58,6 +60,15 @@ public enum ControlBlocks {
         let zero = [Double](repeating: 0, count: u.count)
         switch comp.kind {
         // <eval>
+        case .integratorBlock:
+            // y(t) = K·∫(u + input offset)dt + V0, trapezoidal: y = y_n + K·h/2·(u_n + u), held inside the limits.
+            let k = comp.value, off = comp.param("inOffset")
+            let yPrev = comp.runtimeState.count >= 2 ? comp.runtimeState[0] : comp.param("initial")
+            let uPrev = comp.runtimeState.count >= 2 ? comp.runtimeState[1] : u[0] // input taken as constant over the first step
+            guard h > 0 else { return Linearized(value: yPrev, partials: [0]) }
+            let raw = yPrev + k * h / 2 * (uPrev + off + u[0] + off)
+            let (y, inside) = clamp(raw, comp.param("lower"), comp.param("upper"))
+            return Linearized(value: y, partials: [inside ? k * h / 2 : 0])
         case .summerBlock:
             // V(out) = K·(ka·A + kb·B + kc·C) + output offset
             let k = comp.value
@@ -92,6 +103,8 @@ public enum ControlBlocks {
     static func accept(_ comp: CircuitComponent, inputs u: [Double], output y: Double, h: Double) {
         switch comp.kind {
         // <accept>
+        case .integratorBlock:
+            comp.runtimeState = [y, u[0]]
         default:
             break
         }
@@ -103,6 +116,9 @@ public enum ControlBlocks {
     static func acGains(_ comp: CircuitComponent, omega: Double, op: [Double]?) -> [Complex]? {
         switch comp.kind {
         // <ac>
+        case .integratorBlock:
+            // K / jω
+            return [Complex(comp.value) / Complex(0, max(omega, 1e-30))]
         case .summerBlock:
             let k = comp.value
             return [comp.param("aGain"), comp.param("bGain"), comp.param("cGain")].map { Complex(k * $0) }

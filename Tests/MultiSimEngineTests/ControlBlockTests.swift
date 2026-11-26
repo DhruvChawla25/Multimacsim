@@ -67,4 +67,25 @@ final class ControlBlockTests: XCTestCase {
         let ac = try ACSteadyStateAnalyzer.analyze(acBench.circuit).get()
         XCTAssertEqual(ac.nodeVoltage(acBench.node(s.pins[3])).magnitude, 2, accuracy: 1e-9)
     }
+
+    func testIntegratorRampsAndClips() throws {
+        let (bench, b, _, _) = block(.integratorBlock, value: 100, inputs: [2], params: ["upper": 1.5, "lower": -1.5])
+        let solver = bench.solver(dt: 1e-3)
+        var res = solver.step()
+        XCTAssertEqual(output(bench, b, res), 100 * 2 * 1e-3, accuracy: 1e-9) // 0.2 V after 1 ms
+        for _ in 0..<4 { res = solver.step() }
+        XCTAssertEqual(output(bench, b, res), 1.0, accuracy: 1e-9)             // 5 ms
+        for _ in 0..<10 { res = solver.step() }
+        XCTAssertEqual(output(bench, b, res), 1.5, accuracy: 1e-9)             // clipped at the upper limit
+        // Integrating a sine gives -cos: trapezoidal tracks it closely, and the phasor gain is K/ω at -90°.
+        let (sb, sblk, _, _) = block(.integratorBlock, value: 2 * .pi * 50, inputs: [1], source: .acVoltageSource, secondary: 50)
+        let sv = sb.solver(dt: 1e-4)
+        var r = sv.step()
+        for _ in 1..<100 { r = sv.step() } // 10 ms: half a cycle, ∫ = (1 - cos π)·K/ω = 2
+        XCTAssertEqual(output(sb, sblk, r), 2, accuracy: 1e-3)
+        let ac = try ACSteadyStateAnalyzer.analyze(sb.circuit).get()
+        let out = ac.nodeVoltage(sb.node(sblk.pins[1]))
+        XCTAssertEqual(out.magnitude, 1, accuracy: 1e-9)
+        XCTAssertEqual(out.angleDegrees, -90, accuracy: 1e-9)
+    }
 }

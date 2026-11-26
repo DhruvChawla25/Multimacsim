@@ -713,6 +713,8 @@ public struct SchematicCanvasView: View {
             return "K = \(String(format: "%.4g", comp.value))"
         case .summerBlock:
             return "Σ ×\(String(format: "%.3g", comp.value))"
+        case .integratorBlock:
+            return "∫ K = \(String(format: "%.4g", comp.value))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:
