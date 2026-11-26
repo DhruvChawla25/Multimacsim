@@ -60,7 +60,13 @@ public enum ComponentKind: String, Codable, CaseIterable {
 /// Grouping used by the palette so every part shows up on the same surface, in a fixed order.
 public enum PartCategory: String, CaseIterable, Sendable {
     case instruments = "Measuring Instruments"
-    case sources = "Sources & Ground"
+    // The Multisim "Sources" group, family by family.
+    case powerSources = "Power Sources"
+    case signalVoltageSources = "Signal Voltage Sources"
+    case signalCurrentSources = "Signal Current Sources"
+    case controlledSources = "Controlled Sources"
+    case controlFunctionBlocks = "Control Function Blocks"
+    case digitalSources = "Digital Sources"
     case passives = "Passives & Loads"
     case semiconductors = "Semiconductors"
     case analogLogic = "Analog & Logic ICs"
@@ -70,16 +76,22 @@ public enum PartCategory: String, CaseIterable, Sendable {
 extension ComponentKind {
     public var category: PartCategory {
         switch self {
-        case .ground, .dcVoltageSource, .acVoltageSource, .dcCurrentSource, .clockSource, .functionGenerator:
-            return .sources
-        case .ammeter, .voltmeter, .galvanometer, .ohmmeter, .wattmeter, .multimeter:
+        case .ground, .dcVoltageSource:
+            return .powerSources
+        case .acVoltageSource, .clockSource:
+            return .signalVoltageSources
+        case .dcCurrentSource:
+            return .signalCurrentSources
+        case .vcvs, .vccs:
+            return .controlledSources
+        case .ammeter, .voltmeter, .galvanometer, .ohmmeter, .wattmeter, .multimeter, .functionGenerator:
             return .instruments
         case .resistor, .capacitor, .electrolyticCapacitor, .trimmerCapacitor, .inductor,
              .potentiometer, .rheostat, .switchSPST, .lamp, .fuse, .thermistor, .photoResistor:
             return .passives
         case .diode, .led, .zenerDiode, .schottkyDiode, .bjtNPN, .bjtPNP:
             return .semiconductors
-        case .opAmp, .vcvs, .vccs, .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR,
+        case .opAmp, .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR,
              .logicXOR, .logicXNOR, .logicBuffer:
             return .analogLogic
         case .probe:
@@ -228,6 +240,17 @@ extension ComponentKind {
     /// True when the part measures the circuit rather than being part of it.
     public var isInstrument: Bool {
         category == .instruments || self == .probe
+    }
+
+    /// True for every family of the Multisim Sources group.
+    public var isSource: Bool {
+        switch category {
+        case .powerSources, .signalVoltageSources, .signalCurrentSources, .controlledSources,
+             .controlFunctionBlocks, .digitalSources:
+            return true
+        default:
+            return self == .functionGenerator
+        }
     }
 
     /// Parts whose label shows a live measured value instead of a static rating.

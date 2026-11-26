@@ -7,7 +7,10 @@ public struct ComponentPaletteView: View {
     @State private var searchText: String = ""
 
     private static let orderedCategories: [PartCategory] = [
-        .instruments, .probes, .sources, .passives, .semiconductors, .analogLogic
+        .instruments, .probes,
+        .powerSources, .signalVoltageSources, .signalCurrentSources, .controlledSources,
+        .controlFunctionBlocks, .digitalSources,
+        .passives, .semiconductors, .analogLogic
     ]
 
     public var body: some View {
@@ -16,7 +19,7 @@ public struct ComponentPaletteView: View {
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Search 40+ parts...", text: $searchText)
+                TextField("Search \(ComponentKind.allCases.count) parts...", text: $searchText)
                     .textFieldStyle(.plain)
             }
             .padding(8)
