@@ -166,6 +166,8 @@ public struct ComponentSymbolView: View {
             RailSymbol(pointsUp: false).stroke(symbolColor, lineWidth: lineWidth)
         case .digitalGround:
             DigitalGroundSymbol().stroke(symbolColor, lineWidth: lineWidth)
+        case .amVoltage:
+            SignalSourceSymbol(glyph: .am).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:

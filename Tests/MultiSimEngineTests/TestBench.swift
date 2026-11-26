@@ -3,7 +3,7 @@ import XCTest
 
 /// Small helper for wiring test circuits without spelling out every Wire by hand.
 final class TestBench {
-    private(set) var components: [CircuitComponent] = []
+    var components: [CircuitComponent] = []
     private(set) var wires: [Wire] = []
     let gnd = CircuitComponent(kind: .ground, designator: "GND")
 

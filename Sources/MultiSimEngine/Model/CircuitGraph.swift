@@ -316,6 +316,13 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
                 Pin(index: 0, name: "IN", relativeX: -30, relativeY: 0),
                 Pin(index: 1, name: "OUT", relativeX: 30, relativeY: 0)
             ]
+
+        default:
+            // Signal sources are handled above the switch; anything else is a plain two-terminal part.
+            return [
+                Pin(index: 0, name: "A", relativeX: -30, relativeY: 0),
+                Pin(index: 1, name: "B", relativeX: 30, relativeY: 0)
+            ]
         }
     }
 }

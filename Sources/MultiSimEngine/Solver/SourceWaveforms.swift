@@ -88,6 +88,10 @@ enum SourceWaveforms {
     static func value(_ comp: CircuitComponent, at t: Double) -> Double {
         if let p = pulse(for: comp) { return p.value(at: t) }
         switch comp.kind {
+        case .amVoltage:
+            // Multisim AM: v = Vc·(1 + m·sin 2πf_m t)·sin 2πf_c t
+            let fc = frequency(comp, fallback: 500), fm = comp.param("modFreq"), m = comp.param("modIndex")
+            return comp.value * (1 + m * sin(2 * .pi * fm * t)) * sin(2 * .pi * fc * t)
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -123,6 +127,11 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .amVoltage:
+            // ngspice AM(VA VO MF FC TD) = VA·(VO + sin MF)·sin FC
+            let m = comp.param("modIndex"), fc = frequency(comp, fallback: 500)
+            guard m > 0 else { return "SIN(0 \(comp.value) \(fc))" }
+            return "AM(\(comp.value * m) \(1 / m) \(comp.param("modFreq")) \(fc) 0)"
         default:
             return nil
         }
@@ -130,12 +139,15 @@ enum SourceWaveforms {
 
     /// Fastest frequency a source contains, for the "too few samples per cycle" warning.
     static func highestFrequency(_ comp: CircuitComponent) -> Double? {
-        fundamentalFrequency(comp)
+        if comp.kind == .amVoltage { return frequency(comp, fallback: 500) + comp.param("modFreq") }
+        return fundamentalFrequency(comp)
     }
 
     /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.
     static func fundamentalFrequency(_ comp: CircuitComponent) -> Double? {
         switch comp.kind {
+        case .amVoltage:
+            return min(frequency(comp, fallback: 500), max(comp.param("modFreq"), 1e-3))
         case .acVoltageSource, .threePhaseWye, .threePhaseDelta:
             return frequency(comp, fallback: 50)
         case .functionGenerator, .clockSource:

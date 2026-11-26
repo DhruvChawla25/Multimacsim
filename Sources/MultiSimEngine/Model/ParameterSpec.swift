@@ -81,6 +81,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "V", range: -1000...1000, sliderRange: -24...24, isLogarithmic: false, usesESeries: false)
             case .digitalGround:
                 return nil
+            case .amVoltage:
+                return ParameterSpec(label: label, unit: "V", range: 0...1000, sliderRange: 0...50, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }
@@ -104,6 +106,8 @@ extension ComponentKind {
             case .zenerDiode:
                 return ParameterSpec(label: label, unit: "V", range: 1...200, sliderRange: 2...24, isLogarithmic: false, usesESeries: false)
             case .threePhaseWye, .threePhaseDelta:
+                return ParameterSpec(label: label, unit: "Hz", range: 1e-3...1e6, sliderRange: 1...1e4, isLogarithmic: true, usesESeries: true)
+            case .amVoltage:
                 return ParameterSpec(label: label, unit: "Hz", range: 1e-3...1e6, sliderRange: 1...1e4, isLogarithmic: true, usesESeries: true)
             case .bjtNPN, .bjtPNP:
                 return ParameterSpec(label: label, unit: "", range: 1...1000, sliderRange: 20...500, isLogarithmic: true, usesESeries: false)

@@ -43,6 +43,11 @@ extension ComponentKind {
             ]
         case .threePhaseWye, .threePhaseDelta:
             return [ExtraParameter("phase", .linear("Phase A Angle:", "°", -360...360, slider: -180...180), default: 0)]
+        case .amVoltage:
+            return [
+                ExtraParameter("modIndex", .linear("Modulation Index m:", "", 0...10, slider: 0...2), default: 0.5),
+                ExtraParameter("modFreq", .log("Modulating Frequency:", "Hz", 1e-3...1e6, slider: 0.1...1e4, eSeries: true), default: 50),
+            ]
         default:
             return []
         }

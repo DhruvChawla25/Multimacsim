@@ -672,6 +672,8 @@ public struct SchematicCanvasView: View {
             return "3~ \(EngineeringFormatter.voltage(comp.value)) L-L\n\(EngineeringFormatter.units(comp.secondaryValue > 0 ? comp.secondaryValue : 50, "Hz"))"
         case .vccRail, .vddRail, .veeRail, .vssRail:
             return "\(comp.kind.designatorPrefix) \(EngineeringFormatter.voltage(comp.value))"
+        case .amVoltage:
+            return "AM \(EngineeringFormatter.units(comp.value, "Vp")) @ \(EngineeringFormatter.units(comp.secondaryValue, "Hz"))\nm \(String(format: "%.2g", comp.param("modIndex"))) @ \(EngineeringFormatter.units(comp.param("modFreq"), "Hz"))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:
