@@ -26,6 +26,7 @@ public final class MNASolver {
     public var integrationMethod: IntegrationMethod = .trapezoidal
     /// True until the first step and right after a source discontinuity: that step uses backward Euler.
     public private(set) var needsBackwardEulerStep = true
+    private var shortenNextStep = false
     /// Newton convergence criteria (SPICE defaults).
     public var tolerances = SolverTolerances()
     /// First auxiliary (branch-current) unknown of each part that has one.
@@ -68,6 +69,7 @@ public final class MNASolver {
         isSolutionValid = false
         solution = []
         needsBackwardEulerStep = true
+        shortenNextStep = false
         for comp in circuit.components {
             comp.runtimeVoltageDrop = 0.0
             comp.runtimeCurrent = 0.0
@@ -81,38 +83,96 @@ public final class MNASolver {
         }
     }
 
-    /// Steps the simulation forward by `dt` seconds using Newton-Raphson iteration.
+    /// Steps the simulation forward by exactly `dt` seconds.
+    ///
+    /// Inside the step the solver lands exactly on every source corner (pulse edges, PWL points),
+    /// then takes a short backward-Euler step before handing back to the trapezoidal rule.
     public func step(dt: Double? = nil) -> SimulationStepResult {
         let h = dt ?? timeStep
-        currentTime += h
         layoutAuxiliaryUnknowns()
 
         // If no nodes, return empty result
         if totalNodes == 0 {
+            currentTime += h
             return SimulationStepResult(time: currentTime, nodeVoltages: [0: 0.0], converged: true, iterations: 0, isSingular: false)
         }
 
+        let tEnd = currentTime + h
+        let minStep = max(h * 1e-9, 1e-15)
+        var last = SubstepOutcome(voltages: [0: 0.0], converged: true, singular: false, iterations: 0)
+        var iterations = 0
+        var allConverged = true
+        var substeps = 0
+        while currentTime < tEnd - minStep && substeps < 256 {
+            substeps += 1
+            var target = tEnd
+            // Just after a corner: a short backward-Euler step, so neither rule smears the edge.
+            if shortenNextStep { target = min(tEnd, currentTime + max(h * Self.postBreakpointFraction, minStep)) }
+            var landsOnBreakpoint = false
+            if let bp = nextBreakpoint(after: currentTime + minStep), bp < target + minStep {
+                target = bp > tEnd - minStep ? tEnd : bp
+                landsOnBreakpoint = true
+            }
+            last = advance(to: target)
+            iterations += last.iterations
+            allConverged = allConverged && last.converged
+            if last.singular { break }
+            shortenNextStep = landsOnBreakpoint
+            if landsOnBreakpoint { needsBackwardEulerStep = true }
+        }
+        currentTime = tEnd
+        updateWireCurrents()
+
+        return SimulationStepResult(
+            time: currentTime,
+            nodeVoltages: last.voltages,
+            converged: allConverged,
+            iterations: iterations,
+            isSingular: last.singular
+        )
+    }
+
+    /// Length of the backward-Euler step taken right after a breakpoint, as a fraction of the step.
+    static let postBreakpointFraction = 0.05
+
+    struct SubstepOutcome {
+        var voltages: [Int: Double]
+        var converged: Bool
+        var singular: Bool
+        var iterations: Int
+    }
+
+    /// Solves the circuit at `target` and accepts it as the new state.
+    private func advance(to target: Double) -> SubstepOutcome {
+        let hs = target - currentTime
         let size = totalNodes + auxCount
         // Warm start from the last accepted point: Newton then only has to follow the change over one step.
         let x0 = solution.count == size ? solution : [Double](repeating: 0, count: size)
         let mode: StampMode = (integrationMethod == .backwardEuler || needsBackwardEulerStep) ? .backwardEuler : .trapezoidal
-        let outcome = newtonSolve(time: currentTime, h: h, mode: mode, initial: x0)
-        if !outcome.singular { needsBackwardEulerStep = false }
+        let outcome = newtonSolve(time: target, h: hs, mode: mode, initial: x0)
 
         isSolutionValid = !outcome.singular
-        if !outcome.singular { solution = outcome.x }
-        let voltages = nodeVoltageMap(outcome.singular ? x0 : outcome.x)
-
+        if !outcome.singular {
+            solution = outcome.x
+            needsBackwardEulerStep = false
+        }
+        currentTime = target
+        let x = outcome.singular ? x0 : outcome.x
+        let voltages = nodeVoltageMap(x)
         // Update runtime component states (currents, voltages, companion history, instrument readings)
-        updateComponentRuntimeStates(voltages: voltages, x: outcome.singular ? x0 : outcome.x, dt: h, mode: mode)
+        updateComponentRuntimeStates(voltages: voltages, x: x, dt: hs, mode: mode)
+        return SubstepOutcome(voltages: voltages, converged: outcome.converged, singular: outcome.singular, iterations: outcome.iterations)
+    }
 
-        return SimulationStepResult(
-            time: currentTime,
-            nodeVoltages: voltages,
-            converged: outcome.converged,
-            iterations: outcome.iterations,
-            isSingular: outcome.singular
-        )
+    /// Earliest source corner strictly after `t`, across every source in the circuit.
+    func nextBreakpoint(after t: Double) -> Double? {
+        var best: Double?
+        for comp in circuit.components {
+            if let bp = SourceWaveforms.nextBreakpoint(comp, after: t), bp > t, bp < (best ?? .infinity) {
+                best = bp
+            }
+        }
+        return best
     }
 
     // MARK: - Newton-Raphson
@@ -327,7 +387,7 @@ public final class MNASolver {
             }
 
         case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator:
-            sys.voltageSource(k, plus: node(0), minus: node(1), value: sourceTargetVoltage(comp, time: ctx.time))
+            sys.voltageSource(k, plus: node(0), minus: node(1), value: SourceWaveforms.value(comp, at: ctx.time))
 
         case .vcvs:
             // V(out+) - V(out-) = gain * (V(ctrl+) - V(ctrl-))
@@ -348,36 +408,6 @@ public final class MNASolver {
 
         default:
             break
-        }
-    }
-
-    /// Instantaneous target value for an independent source.
-    private func sourceTargetVoltage(_ comp: CircuitComponent, time t: Double) -> Double {
-        switch comp.kind {
-        case .dcVoltageSource:
-            return comp.value
-        case .acVoltageSource:
-            let freq = comp.secondaryValue > 0 ? comp.secondaryValue : 60.0
-            return comp.value * sin(2.0 * .pi * freq * t)
-        case .clockSource:
-            let freq = comp.secondaryValue > 0 ? comp.secondaryValue : 1000.0
-            let period = 1.0 / freq
-            return t.truncatingRemainder(dividingBy: period) < period * 0.5 ? comp.value : 0.0
-        case .functionGenerator:
-            let freq = comp.secondaryValue > 0 ? comp.secondaryValue : 1000.0
-            let phase = (t * freq).truncatingRemainder(dividingBy: 1.0)
-            switch GeneratorWaveform(rawValue: comp.modeIndex) ?? .sine {
-            case .sine:
-                return comp.value * sin(2.0 * .pi * phase)
-            case .square:
-                return phase < 0.5 ? comp.value : -comp.value
-            case .triangle:
-                // phase 0 -> +V, 0.5 -> -V, 1 -> +V
-                let p = phase < 0.5 ? phase * 2.0 : (phase - 0.5) * 2.0
-                return comp.value * (p < 0.5 ? (4.0 * p - 1.0) : (3.0 - 4.0 * p))
-            }
-        default:
-            return 0.0
         }
     }
 
@@ -649,8 +679,10 @@ public final class MNASolver {
         }
 
         blowFuses()
+    }
 
-        // Update runtime current on wires for visual animation
+    /// Wire currents drive the moving-dot animation; refreshed once per step.
+    private func updateWireCurrents() {
         for i in 0..<circuit.wires.count {
             let wire = circuit.wires[i]
             if let comp = circuit.components.first(where: { c in c.pins.contains { $0.id == wire.startPinId } }) {

@@ -1,0 +1,112 @@
+import Foundation
+
+/// SPICE PULSE(V1 V2 TD TR TF PW PER): trapezoidal pulse train with exact corner times.
+public struct PulseShape: Sendable, Equatable {
+    public var v1: Double
+    public var v2: Double
+    public var delay: Double
+    public var rise: Double
+    public var fall: Double
+    /// Time spent at V2, not counting the edges.
+    public var width: Double
+    /// Repetition period; zero or negative means a single pulse.
+    public var period: Double
+
+    public init(v1: Double, v2: Double, delay: Double = 0, rise: Double, fall: Double, width: Double, period: Double) {
+        self.v1 = v1
+        self.v2 = v2
+        self.delay = max(delay, 0)
+        self.rise = max(rise, 0)
+        self.fall = max(fall, 0)
+        self.width = max(width, 0)
+        self.period = period
+    }
+
+    /// Edge time used for "ideal" square waves so the solver still has a corner to land on.
+    public static let idealEdge = 1e-9
+
+    /// Square wave between `low` and `high` at `frequency`, high for `duty` of each period, starting high.
+    public static func square(low: Double, high: Double, frequency: Double, duty: Double = 0.5, delay: Double = 0) -> PulseShape {
+        let period = 1.0 / max(frequency, 1e-12)
+        let edge = min(idealEdge, period * 1e-3)
+        let d = min(max(duty, 0.001), 0.999)
+        return PulseShape(v1: low, v2: high, delay: delay, rise: edge, fall: edge,
+                          width: max(period * d - edge, 0), period: period)
+    }
+
+    private var corners: [Double] { [0, rise, rise + width, rise + width + fall] }
+
+    public func value(at t: Double) -> Double {
+        guard t >= delay else { return v1 }
+        var local = t - delay
+        if period > 0 { local = local.truncatingRemainder(dividingBy: period) }
+        if local < rise { return rise > 0 ? v1 + (v2 - v1) * local / rise : v2 }
+        if local < rise + width { return v2 }
+        if local < rise + width + fall { return fall > 0 ? v2 + (v1 - v2) * (local - rise - width) / fall : v1 }
+        return v1
+    }
+
+    /// First corner strictly after `t`.
+    public func nextBreakpoint(after t: Double) -> Double? {
+        if t < delay { return delay }
+        let local = t - delay
+        if period > 0 {
+            let k = floor(local / period)
+            for cycle in [k, k + 1] {
+                for c in corners {
+                    let bp = delay + cycle * period + c
+                    if bp > t * (1 + 1e-12) + 1e-15 { return bp }
+                }
+            }
+            return nil
+        }
+        return corners.map { delay + $0 }.first { $0 > t * (1 + 1e-12) + 1e-15 }
+    }
+}
+
+/// Time-domain value and discontinuities of every independent source.
+enum SourceWaveforms {
+    static func frequency(_ comp: CircuitComponent, fallback: Double) -> Double {
+        comp.secondaryValue > 0 ? comp.secondaryValue : fallback
+    }
+
+    /// Pulse description for sources that switch, nil for smooth ones.
+    static func pulse(for comp: CircuitComponent) -> PulseShape? {
+        switch comp.kind {
+        case .clockSource:
+            return .square(low: 0, high: comp.value, frequency: frequency(comp, fallback: 1000))
+        case .functionGenerator where GeneratorWaveform(rawValue: comp.modeIndex) == .square:
+            return .square(low: -comp.value, high: comp.value, frequency: frequency(comp, fallback: 1000))
+        default:
+            return nil
+        }
+    }
+
+    /// Instantaneous voltage (or current) of an independent source.
+    static func value(_ comp: CircuitComponent, at t: Double) -> Double {
+        if let p = pulse(for: comp) { return p.value(at: t) }
+        switch comp.kind {
+        case .dcVoltageSource:
+            return comp.value
+        case .acVoltageSource:
+            return comp.value * sin(2.0 * .pi * frequency(comp, fallback: 60) * t)
+        case .functionGenerator:
+            let freq = frequency(comp, fallback: 1000)
+            let phase = (t * freq).truncatingRemainder(dividingBy: 1.0)
+            switch GeneratorWaveform(rawValue: comp.modeIndex) ?? .sine {
+            case .sine, .square:
+                return comp.value * sin(2.0 * .pi * phase)
+            case .triangle:
+                let p = phase < 0.5 ? phase * 2.0 : (phase - 0.5) * 2.0
+                return comp.value * (p < 0.5 ? (4.0 * p - 1.0) : (3.0 - 4.0 * p))
+            }
+        default:
+            return 0.0
+        }
+    }
+
+    /// Earliest waveform corner of this source strictly after `t`.
+    static func nextBreakpoint(_ comp: CircuitComponent, after t: Double) -> Double? {
+        pulse(for: comp)?.nextBreakpoint(after: t)
+    }
+}
