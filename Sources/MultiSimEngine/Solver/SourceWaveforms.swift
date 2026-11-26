@@ -88,7 +88,7 @@ enum SourceWaveforms {
     static func value(_ comp: CircuitComponent, at t: Double) -> Double {
         if let p = pulse(for: comp) { return p.value(at: t) }
         switch comp.kind {
-        case .dcVoltageSource:
+        case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
             return comp.value * sin(2.0 * .pi * frequency(comp, fallback: 60) * t)
@@ -118,6 +118,19 @@ enum SourceWaveforms {
         let f = frequency(comp, fallback: 50)
         let ang = threePhaseAngles(comp)[phase] * .pi / 180
         return threePhasePeak(comp) * sin(2 * .pi * f * t + ang)
+    }
+
+    /// SPICE source specification for the signal sources that have no hand-written export.
+    static func spiceSpec(_ comp: CircuitComponent) -> String? {
+        switch comp.kind {
+        default:
+            return nil
+        }
+    }
+
+    /// Fastest frequency a source contains, for the "too few samples per cycle" warning.
+    static func highestFrequency(_ comp: CircuitComponent) -> Double? {
+        fundamentalFrequency(comp)
     }
 
     /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.

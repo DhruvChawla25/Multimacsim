@@ -431,7 +431,9 @@ public final class MNASolver {
     /// How many auxiliary MNA variables a part needs (1 for each ideal source / constraint).
     static func auxiliaryRowCount(for comp: CircuitComponent) -> Int {
         switch comp.kind {
-        case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator, .opAmp, .vcvs, .inductor:
+        case .opAmp, .vcvs, .inductor:
+            return 1
+        case _ where comp.kind.isWaveformVoltageSource:
             return 1
         case .threePhaseWye:
             return 3
@@ -506,9 +508,9 @@ public final class MNASolver {
                 sys.current(from: node(1), to: node(0), geq * comp.runtimePrevVoltage + comp.runtimePrevCurrent)
             }
 
-        case .dcCurrentSource:
+        case _ where comp.kind.isWaveformCurrentSource:
             // Current leaves the OUT terminal (pin 0), the way the symbol's arrow points.
-            sys.current(from: node(1), to: node(0), ctx.sourceScale * comp.value)
+            sys.current(from: node(1), to: node(0), ctx.sourceScale * SourceWaveforms.value(comp, at: ctx.time))
 
         case .diode, .led, .schottkyDiode:
             stampJunction(comp, anode: node(0), cathode: node(1), into: &sys, ctx: ctx)
@@ -547,7 +549,7 @@ public final class MNASolver {
                 sys.setBranchRHS(k, -2.0 * l / ctx.h * comp.runtimePrevCurrent - comp.runtimePrevVoltage)
             }
 
-        case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator:
+        case _ where comp.kind.isWaveformVoltageSource:
             sys.voltageSource(k, plus: node(0), minus: node(1), value: ctx.sourceScale * SourceWaveforms.value(comp, at: ctx.time))
 
         case .vcvs:
@@ -913,7 +915,10 @@ public final class MNASolver {
                 comp.runtimeCurrent = 0.0
                 comp.runtimeReading = v(0)
 
-            case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator, .vcvs:
+            case _ where comp.kind.isWaveformCurrentSource:
+                comp.runtimeCurrent = SourceWaveforms.value(comp, at: currentTime)
+
+            case _ where comp.kind.isWaveformVoltageSource || comp.kind == .vcvs:
                 // MNA's branch unknown flows into the + terminal; report the current delivered out of it.
                 if let k = auxStart[comp.id], totalNodes + k < x.count {
                     comp.runtimeCurrent = -x[totalNodes + k]

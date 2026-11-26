@@ -917,3 +917,79 @@ public struct DigitalGroundSymbol: Shape {
         return path
     }
 }
+
+/// Glyph drawn inside a signal source's circle.
+public enum SourceGlyph: Sendable {
+    case sine, square, pulse, am, fm, exponential, pwl, noise, bipolar, triangle, dc
+}
+
+/// Upright two-terminal signal source: circle, leads top and bottom, a glyph for the waveform.
+/// Current sources add an arrow pointing to the OUT terminal and move the glyph aside.
+public struct SignalSourceSymbol: Shape {
+    public let glyph: SourceGlyph
+    public var isCurrent: Bool = false
+
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let midX = rect.midX
+        path.move(to: CGPoint(x: midX, y: 0)); path.addLine(to: CGPoint(x: midX, y: 14))
+        path.move(to: CGPoint(x: midX, y: 46)); path.addLine(to: CGPoint(x: midX, y: 60))
+        path.addEllipse(in: CGRect(x: midX - 16, y: 14, width: 32, height: 32))
+        var gx = midX, gy = rect.midY, s: CGFloat = 1.0
+        if isCurrent {
+            path.move(to: CGPoint(x: midX - 6, y: 41)); path.addLine(to: CGPoint(x: midX - 6, y: 19))
+            path.move(to: CGPoint(x: midX - 10, y: 25)); path.addLine(to: CGPoint(x: midX - 6, y: 19)); path.addLine(to: CGPoint(x: midX - 2, y: 25))
+            gx = midX + 6; s = 0.55
+        } else {
+            // + and - marks
+            path.move(to: CGPoint(x: midX - 3, y: 19)); path.addLine(to: CGPoint(x: midX + 3, y: 19))
+            path.move(to: CGPoint(x: midX, y: 16)); path.addLine(to: CGPoint(x: midX, y: 22))
+            path.move(to: CGPoint(x: midX - 3, y: 42)); path.addLine(to: CGPoint(x: midX + 3, y: 42))
+            gy = rect.midY + 1
+        }
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: gx + x * s, y: gy + y * s) }
+        switch glyph {
+        case .sine:
+            path.move(to: p(-9, 0))
+            path.addQuadCurve(to: p(0, 0), control: p(-4.5, -9))
+            path.addQuadCurve(to: p(9, 0), control: p(4.5, 9))
+        case .square:
+            path.addLines([p(-9, 4), p(-9, -4), p(0, -4), p(0, 4), p(9, 4), p(9, -4)])
+        case .pulse:
+            path.addLines([p(-10, 4), p(-6, 4), p(-4, -4), p(2, -4), p(4, 4), p(10, 4)])
+        case .bipolar:
+            path.addLines([p(-10, 0), p(-10, -5), p(-3, -5), p(-3, 5), p(4, 5), p(4, 0), p(10, 0)])
+        case .triangle:
+            path.addLines([p(-10, 4), p(-5, -4), p(0, 4), p(5, -4), p(10, 4)])
+        case .am:
+            path.move(to: p(-10, 0))
+            for i in 0..<8 {
+                let amp: CGFloat = [2, 4, 6, 7, 6, 4, 2, 1][i]
+                path.addLine(to: p(-10 + CGFloat(i) * 2.5 + 1.25, i % 2 == 0 ? -amp : amp))
+            }
+            path.addLine(to: p(10, 0))
+        case .fm:
+            path.move(to: p(-10, 0))
+            var x: CGFloat = -10
+            var up = true
+            for w in [4.0, 3.0, 2.0, 1.5, 1.5, 2.0, 3.0] as [CGFloat] where x < 10 {
+                path.addLine(to: p(min(x + w / 2, 10), up ? -5 : 5))
+                x += w; up.toggle()
+            }
+            path.addLine(to: p(10, 0))
+        case .exponential:
+            path.move(to: p(-10, 5))
+            path.addQuadCurve(to: p(0, -5), control: p(-8, -5))
+            path.addQuadCurve(to: p(10, 5), control: p(2, 5))
+        case .pwl:
+            path.addLines([p(-10, 4), p(-4, -5), p(1, -1), p(5, -5), p(10, 4)])
+        case .noise:
+            path.addLines([p(-10, 1), p(-8, -4), p(-6, 3), p(-4, -2), p(-2, 5), p(0, -5), p(2, 2), p(4, -3), p(6, 4), p(8, -1), p(10, 2)])
+        case .dc:
+            path.move(to: p(-8, -2)); path.addLine(to: p(8, -2))
+            path.move(to: p(-8, 2)); path.addLine(to: p(-3, 2))
+            path.move(to: p(3, 2)); path.addLine(to: p(8, 2))
+        }
+        return path
+    }
+}

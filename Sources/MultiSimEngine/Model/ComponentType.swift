@@ -326,6 +326,26 @@ extension ComponentKind {
         }
     }
 
+    /// Two-terminal independent voltage sources whose value comes from `SourceWaveforms` (+ on pin 0).
+    public var isWaveformVoltageSource: Bool {
+        switch self {
+        case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Two-terminal independent current sources; current leaves pin 0, where the arrow points.
+    public var isWaveformCurrentSource: Bool {
+        switch self {
+        case .dcCurrentSource:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// VCC / VDD / VEE / VSS: one-terminal DC supplies to ground whose symbols share a global net.
     public var isSupplyRail: Bool {
         switch self {

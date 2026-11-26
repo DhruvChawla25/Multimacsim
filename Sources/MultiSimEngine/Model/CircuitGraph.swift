@@ -183,6 +183,19 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
 
     /// Generates standard pins with relative offsets (in canvas points) for each component type.
     public static func defaultPins(for kind: ComponentKind) -> [Pin] {
+        // Every signal source stands upright: + (or the arrow tip, OUT) on top.
+        if kind.isWaveformVoltageSource {
+            return [
+                Pin(index: 0, name: "+", relativeX: 0, relativeY: -30),
+                Pin(index: 1, name: "-", relativeX: 0, relativeY: 30)
+            ]
+        }
+        if kind.isWaveformCurrentSource {
+            return [
+                Pin(index: 0, name: "OUT", relativeX: 0, relativeY: -30),
+                Pin(index: 1, name: "IN", relativeX: 0, relativeY: 30)
+            ]
+        }
         switch kind {
         case .ground:
             // Single pin at top (0, -20)

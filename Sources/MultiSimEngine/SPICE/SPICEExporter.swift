@@ -249,7 +249,15 @@ public final class SPICEExporter {
             case .digitalGround:
                 break // node 0, like ground
             default:
-                break
+                // Signal sources describe themselves (SIN, PULSE, PWL, EXP, SFFM ...).
+                if let spec = SourceWaveforms.spiceSpec(comp) {
+                    if comp.kind.isWaveformCurrentSource {
+                        // SPICE pushes current out of its second node: our OUT terminal.
+                        lines.append("\(name) \(node(1)) \(node(0)) \(spec)")
+                    } else {
+                        lines.append("\(name) \(node(0)) \(node(1)) \(spec)")
+                    }
+                }
             }
         }
 

@@ -252,13 +252,21 @@ public enum ACSteadyStateAnalyzer {
             case .vccRail, .vddRail, .veeRail, .vssRail:
                 // A DC rail is an AC short to ground.
                 if circuit.isDrivingRail(comp) { sys.voltageSource(k, plus: node(0), minus: 0, .zero) }
-            case .dcVoltageSource, .acVoltageSource, .functionGenerator, .clockSource:
-                // DC carries no AC signal: a 0 V phasor (a short for AC).
-                if comp.kind == .clockSource && !smallSignal { return .failure(.unsupportedPart(comp.designator)) }
-                if comp.kind == .functionGenerator && !smallSignal && acDriveFrequency(comp) == nil {
+            case _ where comp.kind.isWaveformVoltageSource:
+                // DC carries no AC signal: a 0 V phasor (a short for AC). Pulses, noise etc. only make
+                // sense in a small-signal sweep, where they are AC shorts too.
+                if !smallSignal && !isDC(comp) && acDriveFrequency(comp) == nil {
                     return .failure(.unsupportedPart(comp.designator))
                 }
                 sys.voltageSource(k, plus: node(0), minus: node(1), sourcePhasor(comp))
+            case _ where comp.kind.isWaveformCurrentSource:
+                if !smallSignal && !isDC(comp) && acDriveFrequency(comp) == nil {
+                    return .failure(.unsupportedPart(comp.designator))
+                }
+                // Leaves pin 0 (the arrow tip); DC and non-sine current sources are open circuits for AC.
+                let i = sourcePhasor(comp)
+                sys.current(from: node(1), to: node(0), i)
+                fixedCurrents[comp.id] = i
             case .resistor:
                 let z = Complex(max(comp.value, 1e-6))
                 impedances[comp.id] = z
@@ -298,8 +306,6 @@ public enum ACSteadyStateAnalyzer {
                 } else {
                     for i in 0..<2 { sys.voltageSource(k + i, plus: node(i), minus: node(i + 1), polar(peak, degrees: ang[i])) }
                 }
-            case .dcCurrentSource:
-                fixedCurrents[comp.id] = .zero // open circuit for AC
             case .vcvs:
                 sys.branch(k, plus: node(0), minus: node(1))
                 sys.branchNode(k, node: node(2), Complex(-comp.value))
@@ -431,12 +437,19 @@ public enum ACSteadyStateAnalyzer {
         }
     }
 
-    static func isCurrentDrive(_ kind: ComponentKind) -> Bool { false }
+    static func isCurrentDrive(_ kind: ComponentKind) -> Bool { kind.isWaveformCurrentSource }
+
+    /// Sources that never change, so they carry no AC signal.
+    static func isDC(_ comp: CircuitComponent) -> Bool {
+        comp.kind == .dcVoltageSource || comp.kind == .dcCurrentSource
+    }
 
     /// Branch-current unknowns a part needs in the phasor system.
     static func auxRows(_ comp: CircuitComponent, smallSignal: Bool) -> Int {
         switch comp.kind {
-        case .dcVoltageSource, .acVoltageSource, .functionGenerator, .clockSource, .vcvs, .opAmp:
+        case .vcvs, .opAmp:
+            return 1
+        case _ where comp.kind.isWaveformVoltageSource:
             return 1
         case .threePhaseWye:
             return 3

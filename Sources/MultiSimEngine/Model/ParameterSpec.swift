@@ -137,8 +137,8 @@ public enum ESeries {
 extension CircuitComponent {
     /// Warns when a source frequency is too high for the fixed solver step to resolve (needs >= 20 samples/cycle).
     public func sampleWarning(timeStep: Double) -> String? {
-        guard kind.isVoltageSourceType, kind != .dcVoltageSource, secondaryValue > 0, timeStep > 0 else { return nil }
-        let samples = 1.0 / (secondaryValue * timeStep)
+        guard let f = SourceWaveforms.highestFrequency(self), f > 0, timeStep > 0 else { return nil }
+        let samples = 1.0 / (f * timeStep)
         guard samples < 20 else { return nil }
         let maxFreq = 1.0 / (20.0 * timeStep)
         return String(format: "Only %.1f solver samples per cycle - waveform and resonance will be distorted. Stay under %.0f Hz at this step size.", samples, maxFreq)
