@@ -12,6 +12,15 @@ public struct ACSweepProbe: Equatable, Hashable, Sendable {
         self.label = label
     }
 
+    /// A Bode plotter's input (IN+ - IN-) and output (OUT+ - OUT-) pairs.
+    public static func bodePairs(_ plotter: CircuitComponent, in circuit: Circuit) -> (input: ACSweepProbe, output: ACSweepProbe)? {
+        guard plotter.kind == .bodePlotter, plotter.pins.count == 4 else { return nil }
+        let map = circuit.resolveNodes().pinToNode
+        let n = plotter.pins.map { map[$0.id] ?? 0 }
+        return (ACSweepProbe(plus: n[0], minus: n[1], label: "\(plotter.designator) IN"),
+                ACSweepProbe(plus: n[2], minus: n[3], label: "\(plotter.designator) OUT"))
+    }
+
     /// The voltage across a part (pin 0 minus pin 1), or on its only pin.
     public static func across(_ comp: CircuitComponent, in circuit: Circuit) -> ACSweepProbe {
         let map = circuit.resolveNodes().pinToNode

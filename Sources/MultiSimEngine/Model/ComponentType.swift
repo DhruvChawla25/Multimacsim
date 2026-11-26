@@ -97,6 +97,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case digitalConstant = "Digital Constant"
     case interactiveDigitalConstant = "Interactive Digital Constant"
     case frequencyCounter = "Frequency Counter"
+    case bodePlotter = "Bode Plotter"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -202,6 +203,8 @@ extension ComponentKind {
             return .digitalSources
         case .frequencyCounter:
             return .instruments
+        case .bodePlotter:
+            return .instruments
         case .probe:
             return .probes
         }
@@ -284,6 +287,7 @@ extension ComponentKind {
         case .digitalConstant: return "U_LOGIC"
         case .interactiveDigitalConstant: return "U_KEY"
         case .frequencyCounter: return "XFC"
+        case .bodePlotter: return "XBP"
         case .probe: return "P"
         }
     }
@@ -373,6 +377,7 @@ extension ComponentKind {
         case .digitalConstant: return "Digital Constant (0 / 1)"
         case .interactiveDigitalConstant: return "Interactive Digital Constant (click)"
         case .frequencyCounter: return "Frequency Counter"
+        case .bodePlotter: return "Bode Plotter (IN / OUT)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -459,6 +464,7 @@ extension ComponentKind {
         case .digitalConstant: return "01.square"
         case .interactiveDigitalConstant: return "hand.tap"
         case .frequencyCounter: return "number.square"
+        case .bodePlotter: return "chart.xyaxis.line"
         case .probe: return "pin"
         }
     }

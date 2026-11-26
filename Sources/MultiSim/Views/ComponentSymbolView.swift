@@ -245,6 +245,8 @@ public struct ComponentSymbolView: View {
             DigitalSourceSymbol(interactive: true).stroke(symbolColor, lineWidth: lineWidth)
         case .frequencyCounter:
             CounterSymbol().stroke(symbolColor, lineWidth: lineWidth)
+        case .bodePlotter:
+            BodePlotterSymbol().stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
@@ -1188,6 +1190,24 @@ public struct CounterSymbol: Shape {
         path.addRect(CGRect(x: 19, y: 19, width: 30, height: 12))
         path.move(to: CGPoint(x: 0, y: 30)); path.addLine(to: CGPoint(x: 14, y: 30))
         path.addEllipse(in: CGRect(x: 21, y: 35, width: 5, height: 5))
+        return path
+    }
+}
+
+/// Bode plotter: an instrument box with a little magnitude curve, input pair left, output pair right.
+public struct BodePlotterSymbol: Shape {
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.addRoundedRect(in: CGRect(x: 10, y: 6, width: 40, height: 48), cornerSize: CGSize(width: 3, height: 3))
+        for y: CGFloat in [10, 50] {
+            path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: 10, y: y))
+            path.move(to: CGPoint(x: 50, y: y)); path.addLine(to: CGPoint(x: 60, y: y))
+        }
+        // Flat then rolling off
+        path.move(to: CGPoint(x: 15, y: 22))
+        path.addLine(to: CGPoint(x: 28, y: 22))
+        path.addQuadCurve(to: CGPoint(x: 45, y: 44), control: CGPoint(x: 36, y: 22))
+        path.move(to: CGPoint(x: 15, y: 48)); path.addLine(to: CGPoint(x: 45, y: 48))
         return path
     }
 }

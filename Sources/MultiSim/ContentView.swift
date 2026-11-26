@@ -6,6 +6,7 @@ public struct ContentView: View {
     @State private var showSPICEExport: Bool = false
     @State private var showPhasorMeter: Bool = false
     @State private var showACAnalysis: Bool = false
+    @State private var showBodePlotter: Bool = false
 
     public init(viewModel: CircuitEditorViewModel) {
         self.viewModel = viewModel
@@ -144,6 +145,13 @@ public struct ContentView: View {
                 .keyboardShortcut("y", modifiers: [.command, .shift])
                 .help("AC steady-state analysis: reactances, summary table and waveforms (⇧⌘Y)")
 
+                // AC sweep shown as a Bode plot
+                Button(action: { showBodePlotter = true }) {
+                    Label("Bode Plotter", systemImage: "chart.xyaxis.line")
+                }
+                .keyboardShortcut("b", modifiers: [.command, .shift])
+                .help("AC sweep: magnitude (dB) and phase against frequency (⇧⌘B)")
+
                 // Rotate Component
                 Button(action: { viewModel.rotateSelected() }) {
                     Label("Rotate", systemImage: "rotate.right")
@@ -187,6 +195,9 @@ public struct ContentView: View {
         }
         .sheet(isPresented: $showACAnalysis) {
             ACAnalysisView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showBodePlotter) {
+            BodePlotterView(viewModel: viewModel)
         }
         .sheet(isPresented: $showPhasorMeter) {
             PhasorMeterView(viewModel: viewModel)

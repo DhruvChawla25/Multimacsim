@@ -249,7 +249,7 @@ public enum ACSteadyStateAnalyzer {
             func node(_ i: Int) -> Int { i < n.count ? n[i] : 0 }
             let k = auxStart[comp.id] ?? 0
             switch comp.kind {
-            case .ground, .probe, .digitalGround, .frequencyCounter:
+            case .ground, .probe, .digitalGround, .frequencyCounter, .bodePlotter:
                 continue
             case .vccRail, .vddRail, .veeRail, .vssRail:
                 // A DC rail is an AC short to ground.

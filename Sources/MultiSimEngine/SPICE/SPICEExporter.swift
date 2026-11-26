@@ -283,6 +283,8 @@ public final class SPICEExporter {
                 lines.append("\(name) \(node(0)) 0 DC \(comp.stateBool ? comp.value : 0)")
             case .frequencyCounter:
                 lines.append("* \(name) frequency counter on \(node(0))")
+            case .bodePlotter:
+                lines.append("* \(name) Bode plotter: IN \(node(0))-\(node(1)), OUT \(node(2))-\(node(3)) (use .ac dec 20 10 100k)")
             default:
                 // Signal sources describe themselves (SIN, PULSE, PWL, EXP, SFFM ...).
                 if let spec = SourceWaveforms.spiceSpec(comp) {

@@ -172,7 +172,7 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
     public var bodyHalfSize: Double {
         switch kind {
         case .opAmp, .logicAND, .logicOR, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer,
-             .vcvs, .vccs, .ccvs, .cccs, .vcoSine, .vcoSquare, .vcoTriangle, .wattmeter, .bjtNPN, .bjtPNP, .threePhaseWye, .threePhaseDelta:
+             .vcvs, .vccs, .ccvs, .cccs, .vcoSine, .vcoSquare, .vcoTriangle, .wattmeter, .bjtNPN, .bjtPNP, .threePhaseWye, .threePhaseDelta, .bodePlotter:
             return 34
         case _ where kind.isControlBlock:
             return 32
@@ -346,6 +346,14 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
         case .frequencyCounter:
             // One input; it measures the voltage of that net against ground.
             return [Pin(index: 0, name: "IN", relativeX: -30, relativeY: 0)]
+        case .bodePlotter:
+            // Multisim style: the input pair across the stimulus, the output pair across the response.
+            return [
+                Pin(index: 0, name: "IN+", relativeX: -30, relativeY: -20),
+                Pin(index: 1, name: "IN-", relativeX: -30, relativeY: 20),
+                Pin(index: 2, name: "OUT+", relativeX: 30, relativeY: -20),
+                Pin(index: 3, name: "OUT-", relativeX: 30, relativeY: 20)
+            ]
         case .logicNOT, .logicBuffer:
             // 1 input on left, 1 output on right
             return [

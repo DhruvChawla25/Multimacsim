@@ -70,4 +70,20 @@ final class ACSweepTests: XCTestCase {
         XCTAssertEqual(mid.response.magnitude, 87, accuracy: 6)
         XCTAssertEqual(abs(mid.phaseDegrees), 180, accuracy: 2)
     }
+
+    func testBodePlotterPartMeasuresItsOwnTerminals() throws {
+        let bench = TestBench()
+        let v = bench.add(.acVoltageSource, "V1", value: 1, secondary: 50)
+        let r = bench.add(.resistor, "R1", value: 1000)
+        let c = bench.add(.capacitor, "C1", value: 100e-9)
+        let bp = bench.add(.bodePlotter, "XBP1")
+        bench.wire(v.pins[0], r.pins[0]); bench.wire(r.pins[1], c.pins[0]); bench.ground(v.pins[1], c.pins[1])
+        bench.wire(bp.pins[0], v.pins[0]); bench.wire(bp.pins[2], c.pins[0]); bench.ground(bp.pins[1], bp.pins[3])
+        let pair = try XCTUnwrap(ACSweepProbe.bodePairs(bp, in: bench.circuit))
+        let sweep = try ACSweepAnalyzer.sweep(bench.circuit, input: pair.input, output: pair.output, start: 100, stop: 1e5, pointsPerDecade: 20).get()
+        XCTAssertEqual(try XCTUnwrap(sweep.lowPassCutoff), 1591.5, accuracy: 16)
+        // The plotter itself draws no current and does not upset the transient.
+        let res = bench.solver().step()
+        XCTAssertFalse(res.isSingular)
+    }
 }
