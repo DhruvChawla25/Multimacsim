@@ -50,4 +50,26 @@ extension CircuitEditorViewModel {
         comp.secondaryValue = min(max(ratio, 0.001), 0.999)
         objectWillChange.send()
     }
+
+    /// Sets one named setting (duty cycle, offset, rise time ...), clamped to its range.
+    @discardableResult
+    public func setExtraParameter(componentId: UUID, key: String, to newValue: Double) -> Double? {
+        guard let comp = component(componentId),
+              let p = comp.kind.extraParameters.first(where: { $0.key == key }),
+              newValue.isFinite else { return nil }
+        let applied = p.spec.clamp(newValue)
+        comp.parameters[key] = applied
+        objectWillChange.send()
+        return applied
+    }
+
+    /// Replaces the free-text setting (PWL points, expression ...). Returns the validation error, if any.
+    @discardableResult
+    public func setText(componentId: UUID, to newText: String) -> String? {
+        guard let comp = component(componentId) else { return nil }
+        comp.text = newText
+        solver.rebuildNetlist()
+        objectWillChange.send()
+        return comp.textValidationError
+    }
 }

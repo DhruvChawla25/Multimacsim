@@ -205,6 +205,20 @@ public struct InspectorView: View {
             }
         }
 
+        ForEach(comp.kind.extraParameters, id: \.key) { p in
+            ValueField(spec: p.spec, value: comp.param(p.key)) { newValue in
+                _ = viewModel.setExtraParameter(componentId: comp.id, key: p.key, to: newValue)
+            }
+            .id("\(comp.id)-\(p.key)")
+        }
+
+        if let tp = comp.kind.textParameter {
+            TextParameterEditor(parameter: tp, text: comp.textValue, error: comp.textValidationError) { newText in
+                viewModel.setText(componentId: comp.id, to: newText)
+            }
+            .id("\(comp.id)-text")
+        }
+
         if comp.kind == .potentiometer {
             Text("A = track end, B = track end, W = wiper. Wire A and B across the supply and take the output from W for a potential divider; wire A and W (or B and W) for a variable resistor.")
                 .font(.caption2)
@@ -235,7 +249,8 @@ public struct InspectorView: View {
                 .foregroundStyle(.secondary)
         }
 
-        if comp.kind.parameterSpec(.primary) == nil && comp.kind.secondaryParameterLabel == nil && comp.kind != .led && comp.kind != .switchSPST {
+        if comp.kind.parameterSpec(.primary) == nil && comp.kind.secondaryParameterLabel == nil && comp.kind != .led && comp.kind != .switchSPST
+            && comp.kind.extraParameters.isEmpty && comp.kind.textParameter == nil {
             Text("Ideal model - nothing to set. Just wire it in.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -394,5 +409,41 @@ public struct InspectorView: View {
             Text(value)
                 .font(.caption.bold())
         }
+    }
+}
+
+/// Multi-line text setting (PWL points, expressions) applied with a button so half-typed text never reaches the solver.
+struct TextParameterEditor: View {
+    let parameter: TextParameter
+    let text: String
+    let error: String?
+    let onApply: (String) -> Void
+    @State private var draft: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(parameter.label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            TextEditor(text: $draft)
+                .font(.system(size: 11, design: .monospaced))
+                .frame(minHeight: 54, maxHeight: 110)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(error == nil ? Color.secondary.opacity(0.3) : Color.red, lineWidth: 1))
+            HStack {
+                if let error {
+                    Text(error)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                }
+                Spacer()
+                Button("Apply") { onApply(draft) }
+                    .controlSize(.small)
+                    .disabled(draft == text)
+            }
+            Text(parameter.help)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .onAppear { draft = text }
     }
 }

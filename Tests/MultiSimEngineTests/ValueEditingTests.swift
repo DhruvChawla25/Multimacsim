@@ -162,3 +162,41 @@ final class ValueEditingTests: XCTestCase {
         XCTAssertEqual(voltageAfterOneTau(capacitance: 4.7e-6), 3.16, accuracy: 0.05)
     }
 }
+
+/// Named extra settings and the free-text setting.
+final class ExtraParameterTests: XCTestCase {
+    func testExtraParameterSpecsAreConsistent() {
+        for kind in ComponentKind.allCases {
+            var keys = Set<String>()
+            for p in kind.extraParameters {
+                XCTAssertTrue(keys.insert(p.key).inserted, "\(kind) repeats \(p.key)")
+                XCTAssertTrue(p.spec.range.contains(p.defaultValue), "\(kind).\(p.key) default outside range")
+                XCTAssertTrue(p.spec.range.contains(p.spec.sliderRange.lowerBound), "\(kind).\(p.key)")
+                XCTAssertTrue(p.spec.range.contains(p.spec.sliderRange.upperBound), "\(kind).\(p.key)")
+                if p.spec.isLogarithmic { XCTAssertGreaterThan(p.spec.sliderRange.lowerBound, 0, "\(kind).\(p.key)") }
+            }
+            if kind.textParameter != nil {
+                let c = CircuitComponent(kind: kind, designator: "X")
+                XCTAssertNil(c.textValidationError, "\(kind) default text should be valid")
+            }
+        }
+    }
+
+    func testParametersAndTextSurviveSaveAndLoad() throws {
+        let c = CircuitComponent(kind: .resistor, designator: "R1", value: 10, parameters: ["k": 2.5], text: "hello")
+        let data = try JSONEncoder().encode(Circuit(components: [c]))
+        let back = try JSONDecoder().decode(Circuit.self, from: data).components[0]
+        XCTAssertEqual(back.parameters["k"], 2.5)
+        XCTAssertEqual(back.text, "hello")
+    }
+
+    func testOldFilesWithoutExtrasStillLoad() throws {
+        let c = CircuitComponent(kind: .resistor, designator: "R1", value: 10)
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(c)) as! [String: Any]
+        json.removeValue(forKey: "parameters")
+        json.removeValue(forKey: "text")
+        let back = try JSONDecoder().decode(CircuitComponent.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertTrue(back.parameters.isEmpty)
+        XCTAssertEqual(back.text, "")
+    }
+}

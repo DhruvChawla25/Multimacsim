@@ -62,6 +62,10 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
     public var ledColor: LEDColor
     /// Multi-position selector for parts with modes (function generator waveform, multimeter range).
     public var modeIndex: Int
+    /// Named settings beyond value / secondaryValue (duty cycle, offset, rise time ...). Missing keys use the kind's default.
+    public var parameters: [String: Double]
+    /// Free-text setting: PWL point list, ABM expression, controlling part, coefficient list.
+    public var text: String
 
     // Real-time runtime simulation variables (not saved to file)
     public var runtimeVoltageDrop: Double = 0.0
@@ -72,9 +76,12 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
     public var runtimeReading: Double = 0.0
     /// Running average used by AC meters (mean square for V/A meters, mean power for wattmeters).
     public var runtimeAverage: Double = 0.0
+    /// Internal state of stateful parts (integrators, oscillator phase, counters) - not saved.
+    public var runtimeState: [Double] = []
 
     enum CodingKeys: String, CodingKey {
         case id, kind, designator, position, rotation, pins, value, secondaryValue, stateBool, ledColor, modeIndex
+        case parameters, text
     }
 
     public init(
@@ -87,7 +94,9 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
         secondaryValue: Double = 0.0,
         stateBool: Bool = false,
         ledColor: LEDColor = .red,
-        modeIndex: Int = 0
+        modeIndex: Int = 0,
+        parameters: [String: Double] = [:],
+        text: String = ""
     ) {
         self.id = id
         self.kind = kind
@@ -99,6 +108,8 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
         self.stateBool = stateBool
         self.ledColor = ledColor
         self.modeIndex = modeIndex
+        self.parameters = parameters
+        self.text = text
         self.pins = Self.defaultPins(for: kind)
     }
 
@@ -115,6 +126,8 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
         stateBool = try c.decode(Bool.self, forKey: .stateBool)
         ledColor = try c.decode(LEDColor.self, forKey: .ledColor)
         modeIndex = try c.decodeIfPresent(Int.self, forKey: .modeIndex) ?? 0
+        parameters = try c.decodeIfPresent([String: Double].self, forKey: .parameters) ?? [:]
+        text = try c.decodeIfPresent(String.self, forKey: .text) ?? ""
         pins = try c.decode([Pin].self, forKey: .pins)
     }
 
