@@ -216,6 +216,8 @@ public struct ComponentSymbolView: View {
             VCOSymbol(glyph: .sine).stroke(symbolColor, lineWidth: lineWidth)
         case .gainBlock:
             EmptyView()
+        case .multiplierBlock:
+            EmptyView()
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:

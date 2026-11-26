@@ -707,6 +707,8 @@ public struct SchematicCanvasView: View {
             return "VCO \(EngineeringFormatter.units(comp.value, "Vp"))\n\(EngineeringFormatter.units(comp.secondaryValue, "Hz")) + \(EngineeringFormatter.units(comp.param("gain"), "Hz/V"))"
         case .gainBlock:
             return "K = \(String(format: "%.4g", comp.value))"
+        case .multiplierBlock:
+            return "K = \(String(format: "%.4g", comp.value))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

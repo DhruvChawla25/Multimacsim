@@ -82,6 +82,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case vcoSquare = "Voltage-Controlled Square Wave"
     case vcoTriangle = "Voltage-Controlled Triangle Wave"
     case gainBlock = "Voltage Gain Block"
+    case multiplierBlock = "Voltage Multiplier"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -159,6 +160,8 @@ extension ComponentKind {
             return .controlledSources
         case .gainBlock:
             return .controlFunctionBlocks
+        case .multiplierBlock:
+            return .controlFunctionBlocks
         case .probe:
             return .probes
         }
@@ -227,6 +230,7 @@ extension ComponentKind {
         case .abmCurrent: return "B"
         case .vcoSine, .vcoSquare, .vcoTriangle: return "VCO"
         case .gainBlock: return "A"
+        case .multiplierBlock: return "A"
         case .probe: return "P"
         }
     }
@@ -302,6 +306,7 @@ extension ComponentKind {
         case .vcoSquare: return "Voltage-Controlled Square"
         case .vcoTriangle: return "Voltage-Controlled Triangle"
         case .gainBlock: return "Gain Block (K)"
+        case .multiplierBlock: return "Multiplier (X·Y)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -374,6 +379,7 @@ extension ComponentKind {
         case .vcoSquare: return "square.on.circle"
         case .vcoTriangle: return "triangle.bottomhalf.filled"
         case .gainBlock: return "multiply.circle"
+        case .multiplierBlock: return "xmark.circle"
         case .probe: return "pin"
         }
     }
@@ -572,6 +578,7 @@ extension ComponentKind {
         case .cccs: return PartDefaults(value: 10)
         case .vcoSine, .vcoSquare, .vcoTriangle: return PartDefaults(value: 1, secondaryValue: 1000)
         case .gainBlock: return PartDefaults(value: 2)
+        case .multiplierBlock: return PartDefaults(value: 1)
         default: return PartDefaults()
         }
     }
@@ -621,6 +628,7 @@ extension ComponentKind {
         case .cccs: return "Current Gain β (A/A):"
         case .vcoSine, .vcoSquare, .vcoTriangle: return "Output Amplitude (Vp):"
         case .gainBlock: return "Gain K:"
+        case .multiplierBlock: return "Output Gain K:"
         default: return "Value:"
         }
     }

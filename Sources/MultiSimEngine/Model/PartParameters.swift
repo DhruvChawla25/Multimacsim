@@ -124,6 +124,14 @@ extension ComponentKind {
                 ExtraParameter("inOffset", .linear("Input Offset:", "V", -1000...1000, slider: -10...10), default: 0),
                 ExtraParameter("outOffset", .linear("Output Offset:", "V", -1000...1000, slider: -10...10), default: 0),
             ]
+        case .multiplierBlock:
+            return [
+                ExtraParameter("xGain", .linear("X Gain:", "", -1e6...1e6, slider: -10...10), default: 1),
+                ExtraParameter("xOffset", .linear("X Offset:", "V", -1000...1000, slider: -10...10), default: 0),
+                ExtraParameter("yGain", .linear("Y Gain:", "", -1e6...1e6, slider: -10...10), default: 1),
+                ExtraParameter("yOffset", .linear("Y Offset:", "V", -1000...1000, slider: -10...10), default: 0),
+                ExtraParameter("outOffset", .linear("Output Offset:", "V", -1000...1000, slider: -10...10), default: 0),
+            ]
         default:
             return []
         }

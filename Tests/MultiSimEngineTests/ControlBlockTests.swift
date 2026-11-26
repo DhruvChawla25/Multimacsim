@@ -34,4 +34,18 @@ final class ControlBlockTests: XCTestCase {
         XCTAssertEqual(ac.nodeVoltage(acBench.node(acBlock.pins[1])).magnitude, 4, accuracy: 1e-9)
         XCTAssertTrue(SPICEExporter.export(circuit: bench.circuit).contains("V={-3.0*("))
     }
+
+    func testMultiplierAndMixing() {
+        let (bench, b, _, _) = block(.multiplierBlock, value: 0.5, inputs: [3, -4], params: ["xOffset": 1])
+        XCTAssertEqual(output(bench, b, bench.solver().step()), 0.5 * 4 * -4, accuracy: 1e-9)
+        // Squaring a sine (both inputs on one net): mean = A²/2, i.e. a frequency doubler with DC.
+        let sq = TestBench()
+        let s = sq.add(.acVoltageSource, "VS", value: 2, secondary: 50)
+        let m = sq.add(.multiplierBlock, "A1", value: 1)
+        sq.wire(s.pins[0], m.pins[0]); sq.wire(s.pins[0], m.pins[1]); sq.ground(s.pins[1])
+        let solver = sq.solver(dt: 1e-4)
+        var sum = 0.0
+        for _ in 0..<200 { sum += sq.voltage(m.pins[2], solver.step()) }
+        XCTAssertEqual(sum / 200, 2.0, accuracy: 1e-3)
+    }
 }

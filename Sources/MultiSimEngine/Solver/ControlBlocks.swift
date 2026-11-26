@@ -8,6 +8,8 @@ public enum ControlBlocks {
     public static func inputNames(_ kind: ComponentKind) -> [String] {
         switch kind {
         // <inputs>
+        case .multiplierBlock:
+            return ["X", "Y"]
         default:
             return ["IN"]
         }
@@ -28,6 +30,8 @@ public enum ControlBlocks {
     public static func label(_ kind: ComponentKind) -> String {
         switch kind {
         // <labels>
+        case .multiplierBlock:
+            return "×"
         case .gainBlock:
             return "K"
         default:
@@ -46,6 +50,11 @@ public enum ControlBlocks {
         let zero = [Double](repeating: 0, count: u.count)
         switch comp.kind {
         // <eval>
+        case .multiplierBlock:
+            // V(out) = K·[xg·(X + xo)]·[yg·(Y + yo)] + output offset
+            let k = comp.value, xg = comp.param("xGain"), yg = comp.param("yGain")
+            let x = xg * (u[0] + comp.param("xOffset")), y = yg * (u[1] + comp.param("yOffset"))
+            return Linearized(value: k * x * y + comp.param("outOffset"), partials: [k * xg * y, k * x * yg])
         case .gainBlock:
             // V(out) = K·(u + input offset) + output offset
             let k = comp.value
@@ -84,6 +93,8 @@ public enum ControlBlocks {
         let out = nodes.last ?? "0"
         switch comp.kind {
         // <spice>
+        case .multiplierBlock:
+            return "B\(name) \(out) 0 V={\(comp.value)*(\(comp.param("xGain"))*(\(ins[0])+\(comp.param("xOffset"))))*(\(comp.param("yGain"))*(\(ins[1])+\(comp.param("yOffset"))))+\(comp.param("outOffset"))}"
         case .gainBlock:
             return "B\(name) \(out) 0 V={\(comp.value)*(\(ins[0])+\(comp.param("inOffset")))+\(comp.param("outOffset"))}"
         default:
