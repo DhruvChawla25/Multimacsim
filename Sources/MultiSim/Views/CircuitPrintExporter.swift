@@ -63,6 +63,9 @@ enum CircuitPrintExporter {
                 default: break
                 }
             }
+        } else {
+            // Not a single-frequency AC circuit (DC, pulses, VCOs ...): let the transient run 0.2 s and print what the meters show.
+            for _ in 0..<2000 { vm.stepSimulationSingle() }
         }
         vm.showNodeVoltages = false
         vm.showOscilloscope = false

@@ -204,8 +204,8 @@ public struct OscilloscopeView: View {
         }
     }
 
-    /// Scale steps shared by volts and amps, 1-2-5 from 10 m to 100 per division.
-    private static let scaleSteps: [Double] = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
+    /// Scale steps shared by volts and amps, 1-2-5 from 1 m to 100 per division.
+    private static let scaleSteps: [Double] = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
     private func scaleRow(title: String, color: Color, showsCurrent: Binding<Bool>, perDiv: Binding<Double>) -> some View {
         HStack(spacing: 4) {

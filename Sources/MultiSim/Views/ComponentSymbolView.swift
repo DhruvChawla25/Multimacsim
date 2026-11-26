@@ -643,57 +643,42 @@ public struct DependentSourceSymbol: Shape {
     /// Current-controlled: the two control leads are joined by the sense branch, marked with an arrow.
     public var currentSense: Bool = false
 
+    /// Pins sit at (±25, ±20) from the centre: (5, 10) / (5, 50) control, (55, 10) / (55, 50) output.
     public func path(in rect: CGRect) -> Path {
         var path = Path()
-        let midX = rect.midX + 5
-        let midY = rect.midY
-
-        // Controlled Output Diamond
-        path.move(to: CGPoint(x: midX, y: midY - 18))
-        path.addLine(to: CGPoint(x: midX + 18, y: midY))
-        path.addLine(to: CGPoint(x: midX, y: midY + 18))
-        path.addLine(to: CGPoint(x: midX - 18, y: midY))
+        let cx: CGFloat = 36, cy: CGFloat = 30, r: CGFloat = 15
+        path.move(to: CGPoint(x: cx, y: cy - r))
+        path.addLine(to: CGPoint(x: cx + r, y: cy))
+        path.addLine(to: CGPoint(x: cx, y: cy + r))
+        path.addLine(to: CGPoint(x: cx - r, y: cy))
         path.closeSubpath()
+        // Output leads: diamond tips to OUT+ (top right) and OUT- (bottom right).
+        path.move(to: CGPoint(x: cx, y: cy - r)); path.addLine(to: CGPoint(x: cx, y: 10)); path.addLine(to: CGPoint(x: 55, y: 10))
+        path.move(to: CGPoint(x: cx, y: cy + r)); path.addLine(to: CGPoint(x: cx, y: 50)); path.addLine(to: CGPoint(x: 55, y: 50))
 
-        // Output leads
-        path.move(to: CGPoint(x: midX, y: midY - 18))
-        path.addLine(to: CGPoint(x: midX, y: 0))
-        path.move(to: CGPoint(x: midX, y: midY + 18))
-        path.addLine(to: CGPoint(x: midX, y: 60))
-
-        // Control leads (left)
         if currentSense {
             // Sense branch: I+ straight down to I-, arrow showing the controlling current.
-            path.move(to: CGPoint(x: 6, y: midY - 10))
-            path.addLine(to: CGPoint(x: 6, y: midY + 10))
-            path.move(to: CGPoint(x: 0, y: midY - 10)); path.addLine(to: CGPoint(x: 6, y: midY - 10))
-            path.move(to: CGPoint(x: 0, y: midY + 10)); path.addLine(to: CGPoint(x: 6, y: midY + 10))
-            path.move(to: CGPoint(x: 3, y: midY)); path.addLine(to: CGPoint(x: 6, y: midY + 4)); path.addLine(to: CGPoint(x: 9, y: midY))
+            path.move(to: CGPoint(x: 5, y: 10)); path.addLine(to: CGPoint(x: 11, y: 10))
+            path.addLine(to: CGPoint(x: 11, y: 50)); path.addLine(to: CGPoint(x: 5, y: 50))
+            path.move(to: CGPoint(x: 7, y: 27)); path.addLine(to: CGPoint(x: 11, y: 33)); path.addLine(to: CGPoint(x: 15, y: 27))
         } else {
-            path.move(to: CGPoint(x: 0, y: midY - 10))
-            path.addLine(to: CGPoint(x: midX - 18, y: midY - 10))
-            path.move(to: CGPoint(x: 0, y: midY + 10))
-            path.addLine(to: CGPoint(x: midX - 18, y: midY + 10))
+            // Control terminals with + / - marks.
+            path.move(to: CGPoint(x: 5, y: 10)); path.addLine(to: CGPoint(x: 13, y: 10))
+            path.move(to: CGPoint(x: 5, y: 50)); path.addLine(to: CGPoint(x: 13, y: 50))
+            path.move(to: CGPoint(x: 9, y: 16)); path.addLine(to: CGPoint(x: 15, y: 16))
+            path.move(to: CGPoint(x: 12, y: 13)); path.addLine(to: CGPoint(x: 12, y: 19))
+            path.move(to: CGPoint(x: 9, y: 44)); path.addLine(to: CGPoint(x: 15, y: 44))
         }
 
         if isVoltageSource {
-            // Plus (+) sign near top
-            path.move(to: CGPoint(x: midX, y: midY - 10))
-            path.addLine(to: CGPoint(x: midX, y: midY - 4))
-            path.move(to: CGPoint(x: midX - 3, y: midY - 7))
-            path.addLine(to: CGPoint(x: midX + 3, y: midY - 7))
-            // Minus (-) sign near bottom
-            path.move(to: CGPoint(x: midX - 3, y: midY + 7))
-            path.addLine(to: CGPoint(x: midX + 3, y: midY + 7))
+            path.move(to: CGPoint(x: cx, y: cy - 9)); path.addLine(to: CGPoint(x: cx, y: cy - 3))
+            path.move(to: CGPoint(x: cx - 3, y: cy - 6)); path.addLine(to: CGPoint(x: cx + 3, y: cy - 6))
+            path.move(to: CGPoint(x: cx - 3, y: cy + 6)); path.addLine(to: CGPoint(x: cx + 3, y: cy + 6))
         } else {
-            // Arrow pointing up
-            path.move(to: CGPoint(x: midX, y: midY + 8))
-            path.addLine(to: CGPoint(x: midX, y: midY - 8))
-            path.addLine(to: CGPoint(x: midX - 3, y: midY - 3))
-            path.move(to: CGPoint(x: midX, y: midY - 8))
-            path.addLine(to: CGPoint(x: midX + 3, y: midY - 3))
+            // Arrow up toward OUT+, where the current comes out.
+            path.move(to: CGPoint(x: cx, y: cy + 8)); path.addLine(to: CGPoint(x: cx, y: cy - 8))
+            path.move(to: CGPoint(x: cx - 3, y: cy - 3)); path.addLine(to: CGPoint(x: cx, y: cy - 8)); path.addLine(to: CGPoint(x: cx + 3, y: cy - 3))
         }
-
         return path
     }
 }
@@ -1126,21 +1111,18 @@ public struct VCOSymbol: Shape {
 
     public func path(in rect: CGRect) -> Path {
         var path = Path()
-        let midX = rect.midX + 5, midY = rect.midY
-        path.move(to: CGPoint(x: midX, y: midY - 18))
-        path.addLine(to: CGPoint(x: midX + 18, y: midY))
-        path.addLine(to: CGPoint(x: midX, y: midY + 18))
-        path.addLine(to: CGPoint(x: midX - 18, y: midY))
+        let cx: CGFloat = 36, cy: CGFloat = 30, r: CGFloat = 15
+        path.move(to: CGPoint(x: cx, y: cy - r))
+        path.addLine(to: CGPoint(x: cx + r, y: cy))
+        path.addLine(to: CGPoint(x: cx, y: cy + r))
+        path.addLine(to: CGPoint(x: cx - r, y: cy))
         path.closeSubpath()
-        // Output leads to OUT+ / OUT- on the right
-        path.move(to: CGPoint(x: midX, y: midY - 18)); path.addLine(to: CGPoint(x: midX, y: 10)); path.addLine(to: CGPoint(x: 55, y: 10))
-        path.move(to: CGPoint(x: midX, y: midY + 18)); path.addLine(to: CGPoint(x: midX, y: 50)); path.addLine(to: CGPoint(x: 55, y: 50))
-        // Control leads from CTRL+ / CTRL- on the left
-        path.move(to: CGPoint(x: 5, y: 10)); path.addLine(to: CGPoint(x: midX - 9, y: midY - 9))
-        path.move(to: CGPoint(x: 5, y: 50)); path.addLine(to: CGPoint(x: midX - 9, y: midY + 9))
-        // Waveform glyph inside
-        let g = SignalSourceSymbol(glyph: glyph).glyphPath(center: CGPoint(x: midX, y: midY), scale: 0.6)
-        path.addPath(g)
+        // Output to OUT+ / OUT- on the right, control from CTRL+ / CTRL- on the left (pins at ±25, ±20).
+        path.move(to: CGPoint(x: cx, y: cy - r)); path.addLine(to: CGPoint(x: cx, y: 10)); path.addLine(to: CGPoint(x: 55, y: 10))
+        path.move(to: CGPoint(x: cx, y: cy + r)); path.addLine(to: CGPoint(x: cx, y: 50)); path.addLine(to: CGPoint(x: 55, y: 50))
+        path.move(to: CGPoint(x: 5, y: 10)); path.addLine(to: CGPoint(x: 13, y: 10)); path.addLine(to: CGPoint(x: cx - r / 2, y: cy - r / 2))
+        path.move(to: CGPoint(x: 5, y: 50)); path.addLine(to: CGPoint(x: 13, y: 50)); path.addLine(to: CGPoint(x: cx - r / 2, y: cy + r / 2))
+        path.addPath(SignalSourceSymbol(glyph: glyph).glyphPath(center: CGPoint(x: cx, y: cy), scale: 0.55))
         return path
     }
 }

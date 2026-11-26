@@ -549,6 +549,17 @@ public final class CircuitEditorViewModel: ObservableObject {
             let sw = type.parallelCaseSwitches ?? (true, true)
             circuit = LabCircuits.acParallelBench(rlClosed: sw.rl, rcClosed: sw.rc)
 
+        case .threePhaseStar:
+            circuit = LabCircuits.threePhaseStarLoad()
+        case .amOnScope:
+            circuit = LabCircuits.amSignal()
+        case .cccsMirror:
+            circuit = LabCircuits.cccsCurrentMirror()
+        case .bodeLowPass:
+            circuit = LabCircuits.bodeLowPass()
+        case .vcoCounter:
+            circuit = LabCircuits.vcoWithCounter()
+
         }
 
         selectedComponentId = nil
@@ -570,10 +581,51 @@ public final class CircuitEditorViewModel: ObservableObject {
             oscilloscopeTimeScale = 0.005
             showOscilloscope = true
         }
+        configureExampleScope(type)
         resetSimulation()
         lastConnectedWireDescription = "🧪 \(type.rawValue) loaded — every terminal is already wired"
     }
 
+
+    /// Oscilloscope set-up for the v6 examples.
+    private func configureExampleScope(_ type: PresetType) {
+        func part(_ name: String) -> UUID? { circuit.components.first { $0.designator == name }?.id }
+        switch type {
+        case .threePhaseStar:
+            // Two phase voltages, 120° apart.
+            oscilloscopeChannelACompId = part("RA")
+            oscilloscopeChannelBCompId = part("RB")
+            oscilloscopeVoltsPerDivA = 100
+            oscilloscopeVoltsPerDivB = 100
+            oscilloscopeTimeScale = 0.005
+            showOscilloscope = true
+        case .amOnScope:
+            oscilloscopeChannelACompId = part("VAM")
+            oscilloscopeVoltsPerDivA = 1
+            oscilloscopeTimeScale = 0.005
+            showOscilloscope = true
+        case .cccsMirror:
+            oscilloscopeChannelACompId = part("Rref")
+            oscilloscopeChannelBCompId = part("RL")
+            oscilloscopeChannelAShowsCurrent = true
+            oscilloscopeChannelBShowsCurrent = true
+            oscilloscopeVoltsPerDivA = 0.002
+            oscilloscopeVoltsPerDivB = 0.002
+        case .bodeLowPass:
+            oscilloscopeChannelACompId = part("Vin")
+            oscilloscopeChannelBCompId = part("C1")
+            oscilloscopeVoltsPerDivA = 0.5
+            oscilloscopeVoltsPerDivB = 0.5
+            oscilloscopeTimeScale = 0.001
+        case .vcoCounter:
+            oscilloscopeChannelACompId = part("RL")
+            oscilloscopeVoltsPerDivA = 1
+            oscilloscopeTimeScale = 0.002
+            showOscilloscope = true
+        default:
+            break
+        }
+    }
 
     // MARK: - Live instrument readout text
 
@@ -650,6 +702,12 @@ public enum PresetType: String, CaseIterable, Identifiable {
     case parallelCase2RC = "Lab 3: AC Parallel Case 2 - RC Branch Only"
     case parallelCase3Both = "Lab 4: AC Parallel Case 3 - Both Branches"
     case parallelRLRC50Hz = "Lab 5: AC Parallel RL || RC, 130 V 50 Hz"
+    // v6 source examples (after the five lab sheets)
+    case threePhaseStar = "Example: Three-Phase Star Load, 400 V 50 Hz"
+    case amOnScope = "Example: AM Signal on the Oscilloscope"
+    case cccsMirror = "Example: CCCS Current Mirror"
+    case bodeLowPass = "Example: RC Low-Pass on the Bode Plotter"
+    case vcoCounter = "Example: VCO Read by the Frequency Counter"
 
     /// The three cases of the AC parallel experiment, chosen by switches 3-4 and 5-6.
     public var parallelCaseSwitches: (rl: Bool, rc: Bool)? {
