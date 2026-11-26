@@ -85,6 +85,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "V", range: 0...1000, sliderRange: 0...50, isLogarithmic: false, usesESeries: false)
             case .fmVoltage:
                 return ParameterSpec(label: label, unit: "V", range: 0...1000, sliderRange: 0...50, isLogarithmic: false, usesESeries: false)
+            case .exponentialVoltage:
+                return ParameterSpec(label: label, unit: "V", range: -1000...1000, sliderRange: -24...24, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }

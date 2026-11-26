@@ -170,6 +170,8 @@ public struct ComponentSymbolView: View {
             SignalSourceSymbol(glyph: .am).stroke(symbolColor, lineWidth: lineWidth)
         case .fmVoltage:
             SignalSourceSymbol(glyph: .fm).stroke(symbolColor, lineWidth: lineWidth)
+        case .exponentialVoltage:
+            SignalSourceSymbol(glyph: .exponential).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:

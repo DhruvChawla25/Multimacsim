@@ -94,6 +94,8 @@ enum SourceWaveforms {
             return comp.value * (1 + m * sin(2 * .pi * fm * t)) * sin(2 * .pi * fc * t)
         case .fmVoltage:
             return fm(comp, at: t)
+        case .exponentialVoltage:
+            return exponential(comp, at: t)
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -129,6 +131,8 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .exponentialVoltage:
+            return exponentialSpice(comp)
         case .fmVoltage:
             // SPICE SFFM(VO VA FC MDI FS)
             return "SFFM(\(comp.param("offset")) \(comp.value) \(frequency(comp, fallback: 500)) \(comp.param("modIndex")) \(comp.param("modFreq")))"
@@ -146,6 +150,26 @@ enum SourceWaveforms {
     static func fm(_ comp: CircuitComponent, at t: Double) -> Double {
         let fc = frequency(comp, fallback: 500)
         return comp.param("offset") + comp.value * sin(2 * .pi * fc * t + comp.param("modIndex") * sin(2 * .pi * comp.param("modFreq") * t))
+    }
+
+    /// SPICE EXP(V1 V2 TD1 TAU1 TD2 TAU2): rises from V1 toward V2 after TD1, decays back after TD2.
+    static func exponential(_ comp: CircuitComponent, at t: Double) -> Double {
+        let v1 = comp.param("v1"), v2 = comp.value
+        let td1 = comp.param("td1"), tau1 = max(comp.param("tau1"), 1e-12)
+        let td2 = max(comp.param("td2"), td1), tau2 = max(comp.param("tau2"), 1e-12)
+        guard t >= td1 else { return v1 }
+        var v = v1 + (v2 - v1) * (1 - exp(-(t - td1) / tau1))
+        if t >= td2 { v += (v1 - v2) * (1 - exp(-(t - td2) / tau2)) }
+        return v
+    }
+
+    static func exponentialBreakpoint(_ comp: CircuitComponent, after t: Double) -> Double? {
+        let td1 = comp.param("td1"), td2 = max(comp.param("td2"), td1)
+        return [td1, td2].first { $0 > t + max(abs(t) * 1e-12, 1e-15) }
+    }
+
+    static func exponentialSpice(_ comp: CircuitComponent) -> String {
+        "EXP(\(comp.param("v1")) \(comp.value) \(comp.param("td1")) \(comp.param("tau1")) \(max(comp.param("td2"), comp.param("td1"))) \(comp.param("tau2")))"
     }
 
     /// Fastest frequency a source contains, for the "too few samples per cycle" warning.
@@ -173,6 +197,7 @@ enum SourceWaveforms {
 
     /// Earliest waveform corner of this source strictly after `t`.
     static func nextBreakpoint(_ comp: CircuitComponent, after t: Double) -> Double? {
+        if comp.kind == .exponentialVoltage { return exponentialBreakpoint(comp, after: t) }
         if let p = pulse(for: comp) { return p.nextBreakpoint(after: t) }
         if comp.kind == .functionGenerator, GeneratorWaveform(rawValue: comp.modeIndex) == .triangle {
             // Peaks sit at phase ±d/2 around each rising zero crossing.

@@ -63,6 +63,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case digitalGround = "Digital Ground"
     case amVoltage = "AM Voltage Source"
     case fmVoltage = "FM Voltage Source"
+    case exponentialVoltage = "Exponential Voltage Source"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -111,6 +112,8 @@ extension ComponentKind {
         case .amVoltage:
             return .signalVoltageSources
         case .fmVoltage:
+            return .signalVoltageSources
+        case .exponentialVoltage:
             return .signalVoltageSources
         case .probe:
             return .probes
@@ -164,6 +167,7 @@ extension ComponentKind {
         case .digitalGround: return "DGND"
         case .amVoltage: return "V"
         case .fmVoltage: return "V"
+        case .exponentialVoltage: return "V"
         case .probe: return "P"
         }
     }
@@ -221,6 +225,7 @@ extension ComponentKind {
         case .digitalGround: return "Digital Ground"
         case .amVoltage: return "AM Voltage"
         case .fmVoltage: return "FM Voltage"
+        case .exponentialVoltage: return "Exponential Voltage"
         case .probe: return "Voltage Probe"
         }
     }
@@ -275,6 +280,7 @@ extension ComponentKind {
         case .digitalGround: return "arrowtriangle.down"
         case .amVoltage: return "antenna.radiowaves.left.and.right"
         case .fmVoltage: return "dot.radiowaves.left.and.right"
+        case .exponentialVoltage: return "chart.line.uptrend.xyaxis"
         case .probe: return "pin"
         }
     }
@@ -341,6 +347,7 @@ extension ComponentKind {
     /// Two-terminal independent voltage sources whose value comes from `SourceWaveforms` (+ on pin 0).
     public var isWaveformVoltageSource: Bool {
         switch self {
+        case .exponentialVoltage: return true
         case .fmVoltage: return true
         case .amVoltage: return true
         case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator:
@@ -438,6 +445,7 @@ extension ComponentKind {
         case .vssRail: return PartDefaults(value: 0)
         case .amVoltage: return PartDefaults(value: 1, secondaryValue: 500)
         case .fmVoltage: return PartDefaults(value: 1, secondaryValue: 500)
+        case .exponentialVoltage: return PartDefaults(value: 5)
         default: return PartDefaults()
         }
     }
@@ -473,6 +481,7 @@ extension ComponentKind {
         case .vccRail, .vddRail, .veeRail, .vssRail: return "Rail Voltage (V):"
         case .amVoltage: return "Carrier Amplitude (Vp):"
         case .fmVoltage: return "Amplitude (Vp):"
+        case .exponentialVoltage: return "Pulsed Value V2 (V):"
         default: return "Value:"
         }
     }

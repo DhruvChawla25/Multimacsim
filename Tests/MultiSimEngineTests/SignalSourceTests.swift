@@ -48,4 +48,17 @@ final class SignalSourceTests: XCTestCase {
         XCTAssertEqual(SourceWaveforms.value(fm, at: 0.2e-3), sin(2 * .pi * 1000 * 0.2e-3 + 5 * sin(2 * .pi * 20 * 0.2e-3)), accuracy: 1e-12)
         XCTAssertTrue(SPICEExporter.export(circuit: Circuit(components: [fm])).contains("SFFM("))
     }
+
+    func testExponentialRiseAndFall() {
+        let e = make(.exponentialVoltage, value: 10, ["v1": 0, "td1": 1e-3, "tau1": 1e-3, "td2": 4e-3, "tau2": 2e-3])
+        XCTAssertEqual(SourceWaveforms.value(e, at: 0.5e-3), 0)
+        XCTAssertEqual(SourceWaveforms.value(e, at: 2e-3), 10 * (1 - exp(-1)), accuracy: 1e-12)
+        let rise = 10 * (1 - exp(-5.0))
+        XCTAssertEqual(SourceWaveforms.value(e, at: 6e-3), rise - 10 * (1 - exp(-1)), accuracy: 1e-9)
+        XCTAssertEqual(SourceWaveforms.nextBreakpoint(e, after: 0)!, 1e-3)
+        XCTAssertEqual(SourceWaveforms.nextBreakpoint(e, after: 1e-3)!, 4e-3)
+        // The solver follows it through a load (the 1 ms delay lands between steps of 0.3 ms).
+        let v = drive(e, dt: 3e-4, steps: 10) // t = 3 ms
+        XCTAssertEqual(v.last!, 10 * (1 - exp(-2)), accuracy: 1e-9)
+    }
 }

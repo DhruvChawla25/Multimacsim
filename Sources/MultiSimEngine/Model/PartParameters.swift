@@ -54,6 +54,14 @@ extension ComponentKind {
                 ExtraParameter("modFreq", .log("Modulating Frequency:", "Hz", 1e-3...1e6, slider: 0.1...1e4, eSeries: true), default: 50),
                 ExtraParameter("offset", .linear("DC Offset:", "V", -100...100, slider: -10...10), default: 0),
             ]
+        case .exponentialVoltage:
+            return [
+                ExtraParameter("v1", .linear("Initial Value V1:", "V", -1000...1000, slider: -24...24), default: 0),
+                ExtraParameter("td1", .linear("Rise Delay TD1:", "s", 0...100, slider: 0...0.05), default: 0),
+                ExtraParameter("tau1", .log("Rise Time Constant τ1:", "s", 1e-9...100, slider: 1e-6...1), default: 1e-3),
+                ExtraParameter("td2", .linear("Fall Delay TD2:", "s", 0...100, slider: 0...0.05), default: 5e-3),
+                ExtraParameter("tau2", .log("Fall Time Constant τ2:", "s", 1e-9...100, slider: 1e-6...1), default: 1e-3),
+            ]
         default:
             return []
         }
