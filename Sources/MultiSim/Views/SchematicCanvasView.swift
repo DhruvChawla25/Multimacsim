@@ -648,8 +648,12 @@ public struct SchematicCanvasView: View {
         case .acVoltageSource:
             // Lab supplies are rated in RMS; the source parameter itself is the peak.
             return "\(EngineeringFormatter.voltage(comp.value / 2.0.squareRoot())) RMS\n\(EngineeringFormatter.units(comp.secondaryValue > 0 ? comp.secondaryValue : 60, "Hz"))"
-        case .clockSource, .functionGenerator:
+        case .clockSource:
             return "\(EngineeringFormatter.voltage(comp.value)) @ \(EngineeringFormatter.units(comp.secondaryValue > 0 ? comp.secondaryValue : 1000, "Hz"))"
+        case .functionGenerator:
+            let wave = (GeneratorWaveform(rawValue: comp.modeIndex) ?? .sine).label
+            let off = comp.param("offset")
+            return "\(wave) \(EngineeringFormatter.units(comp.value, "Vp")) @ \(EngineeringFormatter.units(comp.secondaryValue > 0 ? comp.secondaryValue : 1000, "Hz"))" + (off != 0 ? "\n+\(EngineeringFormatter.voltage(off)) DC" : "")
         case .switchSPST:
             return comp.stateBool ? "CLOSED" : "OPEN"
         case .led:

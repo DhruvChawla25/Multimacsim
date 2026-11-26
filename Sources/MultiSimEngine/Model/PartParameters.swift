@@ -36,6 +36,11 @@ extension ComponentKind {
     /// Settings edited in the inspector below the primary / secondary values.
     public var extraParameters: [ExtraParameter] {
         switch self {
+        case .functionGenerator:
+            return [
+                ExtraParameter("duty", .linear("Duty Cycle (square / triangle rise):", "%", 1...99), default: 50),
+                ExtraParameter("offset", .linear("DC Offset:", "V", -100...100, slider: -10...10), default: 0),
+            ]
         default:
             return []
         }

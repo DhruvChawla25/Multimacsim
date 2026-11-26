@@ -189,13 +189,16 @@ public final class SPICEExporter {
             case .functionGenerator:
                 let freq = comp.secondaryValue > 0 ? comp.secondaryValue : 1000
                 let period = 1.0 / freq
+                let off = comp.param("offset")
+                let duty = min(max(comp.param("duty") / 100, 0.01), 0.99)
                 switch GeneratorWaveform(rawValue: comp.modeIndex) ?? .sine {
                 case .sine:
-                    lines.append("\(name) \(node(0)) \(node(1)) SIN(0 \(comp.value) \(freq))")
+                    lines.append("\(name) \(node(0)) \(node(1)) SIN(\(off) \(comp.value) \(freq))")
                 case .square:
-                    lines.append("\(name) \(node(0)) \(node(1)) PULSE(0 \(comp.value) 0 1n 1n \(period * 0.5) \(period))")
+                    lines.append("\(name) \(node(0)) \(node(1)) PULSE(\(off - comp.value) \(off + comp.value) 0 1n 1n \(period * duty) \(period))")
                 case .triangle:
-                    lines.append("\(name) \(node(0)) \(node(1)) TRI(0 \(comp.value) \(period))")
+                    // Triangle as a pulse whose edges take the whole period.
+                    lines.append("\(name) \(node(0)) \(node(1)) PULSE(\(off - comp.value) \(off + comp.value) \(-period * duty / 2) \(period * duty) \(period * (1 - duty)) 0 \(period))")
                 }
 
             case .schottkyDiode:

@@ -76,7 +76,9 @@ enum SourceWaveforms {
         case .clockSource:
             return .square(low: 0, high: comp.value, frequency: frequency(comp, fallback: 1000))
         case .functionGenerator where GeneratorWaveform(rawValue: comp.modeIndex) == .square:
-            return .square(low: -comp.value, high: comp.value, frequency: frequency(comp, fallback: 1000))
+            let off = comp.param("offset")
+            return .square(low: off - comp.value, high: off + comp.value, frequency: frequency(comp, fallback: 1000),
+                           duty: comp.param("duty") / 100)
         default:
             return nil
         }
@@ -91,15 +93,7 @@ enum SourceWaveforms {
         case .acVoltageSource:
             return comp.value * sin(2.0 * .pi * frequency(comp, fallback: 60) * t)
         case .functionGenerator:
-            let freq = frequency(comp, fallback: 1000)
-            let phase = (t * freq).truncatingRemainder(dividingBy: 1.0)
-            switch GeneratorWaveform(rawValue: comp.modeIndex) ?? .sine {
-            case .sine, .square:
-                return comp.value * sin(2.0 * .pi * phase)
-            case .triangle:
-                let p = phase < 0.5 ? phase * 2.0 : (phase - 0.5) * 2.0
-                return comp.value * (p < 0.5 ? (4.0 * p - 1.0) : (3.0 - 4.0 * p))
-            }
+            return functionGenerator(comp, at: t)
         default:
             return 0.0
         }
@@ -107,6 +101,46 @@ enum SourceWaveforms {
 
     /// Earliest waveform corner of this source strictly after `t`.
     static func nextBreakpoint(_ comp: CircuitComponent, after t: Double) -> Double? {
-        pulse(for: comp)?.nextBreakpoint(after: t)
+        if let p = pulse(for: comp) { return p.nextBreakpoint(after: t) }
+        if comp.kind == .functionGenerator, GeneratorWaveform(rawValue: comp.modeIndex) == .triangle {
+            // Peaks sit at phase ±d/2 around each rising zero crossing.
+            let f = frequency(comp, fallback: 1000)
+            let d = min(max(comp.param("duty") / 100, 0.01), 0.99)
+            return periodicCorners([-d / 2, d / 2], frequency: f, after: t)
+        }
+        return nil
+    }
+
+    /// Next time after `t` whose phase (fraction of a period) is one of `phases`.
+    static func periodicCorners(_ phases: [Double], frequency f: Double, after t: Double) -> Double? {
+        guard f > 0 else { return nil }
+        let k = floor(t * f)
+        var best = Double.infinity
+        for cycle in [k - 1, k, k + 1, k + 2] {
+            for p in phases {
+                let bp = (cycle + p) / f
+                if bp > t + max(abs(t) * 1e-12, 1e-15) && bp < best { best = bp }
+            }
+        }
+        return best.isFinite ? best : nil
+    }
+
+    /// Function generator: amplitude in volts peak about the DC offset. Square and triangle use the duty
+    /// cycle; every shape crosses its offset going up at t = 0, so they line up with the sine.
+    static func functionGenerator(_ comp: CircuitComponent, at t: Double) -> Double {
+        let a = comp.value
+        let off = comp.param("offset")
+        let f = frequency(comp, fallback: 1000)
+        let d = min(max(comp.param("duty") / 100, 0.01), 0.99)
+        switch GeneratorWaveform(rawValue: comp.modeIndex) ?? .sine {
+        case .sine:
+            return off + a * sin(2.0 * .pi * f * t)
+        case .square:
+            return pulse(for: comp)?.value(at: t) ?? off
+        case .triangle:
+            var p = (t * f + d / 2).truncatingRemainder(dividingBy: 1.0)
+            if p < 0 { p += 1 }
+            return p < d ? off - a + 2 * a * p / d : off + a - 2 * a * (p - d) / (1 - d)
+        }
     }
 }
