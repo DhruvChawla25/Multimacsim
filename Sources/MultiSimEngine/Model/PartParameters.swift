@@ -104,6 +104,12 @@ extension ComponentKind {
                 ExtraParameter("td2", .linear("Fall Delay TD2:", "s", 0...100, slider: 0...0.05), default: 5e-3),
                 ExtraParameter("tau2", .log("Fall Time Constant τ2:", "s", 1e-9...100, slider: 1e-6...1), default: 1e-3),
             ]
+        case .fmCurrentSource:
+            return [
+                ExtraParameter("modIndex", .linear("Modulation Index β:", "", 0...100, slider: 0...20), default: 5),
+                ExtraParameter("modFreq", .log("Modulating Frequency:", "Hz", 1e-3...1e6, slider: 0.1...1e4, eSeries: true), default: 50),
+                ExtraParameter("offset", .linear("DC Offset:", "A", -100...100, slider: -0.1...0.1), default: 0),
+            ]
         default:
             return []
         }

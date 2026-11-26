@@ -123,6 +123,8 @@ enum SourceWaveforms {
             return pulse(for: comp)?.value(at: t) ?? 0
         case .exponentialCurrentSource:
             return exponential(comp, at: t)
+        case .fmCurrentSource:
+            return fm(comp, at: t)
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -158,6 +160,8 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .fmCurrentSource:
+            return "SFFM(\(comp.param("offset")) \(comp.value) \(frequency(comp, fallback: 500)) \(comp.param("modIndex")) \(comp.param("modFreq")))"
         case .exponentialCurrentSource:
             return exponentialSpice(comp)
         case .clockCurrentSource:
@@ -284,6 +288,7 @@ enum SourceWaveforms {
 
     /// Fastest frequency a source contains, for the "too few samples per cycle" warning.
     static func highestFrequency(_ comp: CircuitComponent) -> Double? {
+        if comp.kind == .fmCurrentSource { return frequency(comp, fallback: 500) + (comp.param("modIndex") + 1) * comp.param("modFreq") }
         if comp.kind == .whiteNoiseVoltage { return frequency(comp, fallback: 1000) }
         if comp.kind == .fmVoltage { return frequency(comp, fallback: 500) + (comp.param("modIndex") + 1) * comp.param("modFreq") }
         if comp.kind == .amVoltage { return frequency(comp, fallback: 500) + comp.param("modFreq") }
@@ -293,6 +298,8 @@ enum SourceWaveforms {
     /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.
     static func fundamentalFrequency(_ comp: CircuitComponent) -> Double? {
         switch comp.kind {
+        case .fmCurrentSource:
+            return min(frequency(comp, fallback: 500), max(comp.param("modFreq"), 1e-3))
         case .clockCurrentSource:
             return frequency(comp, fallback: 1000)
         case .acCurrentSource:

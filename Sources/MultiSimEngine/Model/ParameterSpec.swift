@@ -101,6 +101,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "A", range: -100...100, sliderRange: -0.1...0.1, isLogarithmic: false, usesESeries: false)
             case .exponentialCurrentSource:
                 return ParameterSpec(label: label, unit: "A", range: -100...100, sliderRange: -0.1...0.1, isLogarithmic: false, usesESeries: false)
+            case .fmCurrentSource:
+                return ParameterSpec(label: label, unit: "A", range: 0...100, sliderRange: 0...0.1, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }
@@ -136,6 +138,8 @@ extension ComponentKind {
             case .acCurrentSource:
                 return ParameterSpec(label: label, unit: "Hz", range: 1e-3...1e6, sliderRange: 1...1e4, isLogarithmic: true, usesESeries: true)
             case .clockCurrentSource:
+                return ParameterSpec(label: label, unit: "Hz", range: 1e-3...1e6, sliderRange: 1...1e4, isLogarithmic: true, usesESeries: true)
+            case .fmCurrentSource:
                 return ParameterSpec(label: label, unit: "Hz", range: 1e-3...1e6, sliderRange: 1...1e4, isLogarithmic: true, usesESeries: true)
             case .bjtNPN, .bjtPNP:
                 return ParameterSpec(label: label, unit: "", range: 1...1000, sliderRange: 20...500, isLogarithmic: true, usesESeries: false)

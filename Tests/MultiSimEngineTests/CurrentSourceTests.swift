@@ -50,4 +50,11 @@ final class CurrentSourceTests: XCTestCase {
         let (_, _, v) = drive(src, dt: 0.5e-3, steps: 6) // 3 ms
         XCTAssertEqual(v.last!, 100 * 0.05 * (1 - exp(-1)), accuracy: 1e-9)
     }
+
+    func testFMCurrentMatchesTheVoltageFormula() {
+        let src = make(.fmCurrentSource, value: 0.01, secondary: 500, ["modIndex": 3, "modFreq": 40])
+        let (_, _, v) = drive(src, dt: 1e-4, steps: 37)
+        let t = 37e-4
+        XCTAssertEqual(v.last!, 100 * 0.01 * sin(2 * .pi * 500 * t + 3 * sin(2 * .pi * 40 * t)), accuracy: 1e-9)
+    }
 }
