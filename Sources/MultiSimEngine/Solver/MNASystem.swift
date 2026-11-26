@@ -14,6 +14,23 @@ public struct SolverTolerances: Sendable, Equatable {
     public init() {}
 }
 
+/// How capacitors and inductors are discretised in time.
+public enum IntegrationMethod: String, CaseIterable, Sendable {
+    /// First order, heavily damped: rings never, but bleeds energy out of LC circuits.
+    case backwardEuler = "Backward Euler"
+    /// Second order and energy-conserving (SPICE default). The solver still takes one
+    /// backward-Euler step at start-up and after every source edge, so it does not ring.
+    case trapezoidal = "Trapezoidal"
+}
+
+/// What the reactive parts look like for one solve.
+enum StampMode: Equatable {
+    /// DC operating point: capacitors open, inductors short.
+    case dc
+    case backwardEuler
+    case trapezoidal
+}
+
 /// The linear system A·x = b assembled for one Newton iteration.
 ///
 /// Unknowns are ordered node 1...N (index node-1), then the auxiliary branch currents.
@@ -120,6 +137,7 @@ struct StampContext {
     let time: Double
     /// Step size from the last accepted point.
     let h: Double
+    let mode: StampMode
 
     @inline(__always) func v(_ node: Int) -> Double { node > 0 && node - 1 < x.count ? x[node - 1] : 0 }
     @inline(__always) func aux(_ k: Int) -> Double { nodeCount + k < x.count ? x[nodeCount + k] : 0 }

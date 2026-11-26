@@ -22,6 +22,10 @@ public final class MNASolver {
     public private(set) var totalNodes: Int = 0
     /// True when the last solve produced a usable operating point.
     public private(set) var isSolutionValid = false
+    /// Integration rule for capacitors and inductors.
+    public var integrationMethod: IntegrationMethod = .trapezoidal
+    /// True until the first step and right after a source discontinuity: that step uses backward Euler.
+    public private(set) var needsBackwardEulerStep = true
     /// Newton convergence criteria (SPICE defaults).
     public var tolerances = SolverTolerances()
     /// First auxiliary (branch-current) unknown of each part that has one.
@@ -63,6 +67,7 @@ public final class MNASolver {
         currentTime = 0.0
         isSolutionValid = false
         solution = []
+        needsBackwardEulerStep = true
         for comp in circuit.components {
             comp.runtimeVoltageDrop = 0.0
             comp.runtimeCurrent = 0.0
@@ -90,14 +95,16 @@ public final class MNASolver {
         let size = totalNodes + auxCount
         // Warm start from the last accepted point: Newton then only has to follow the change over one step.
         let x0 = solution.count == size ? solution : [Double](repeating: 0, count: size)
-        let outcome = newtonSolve(time: currentTime, h: h, initial: x0)
+        let mode: StampMode = (integrationMethod == .backwardEuler || needsBackwardEulerStep) ? .backwardEuler : .trapezoidal
+        let outcome = newtonSolve(time: currentTime, h: h, mode: mode, initial: x0)
+        if !outcome.singular { needsBackwardEulerStep = false }
 
         isSolutionValid = !outcome.singular
         if !outcome.singular { solution = outcome.x }
         let voltages = nodeVoltageMap(outcome.singular ? x0 : outcome.x)
 
         // Update runtime component states (currents, voltages, companion history, instrument readings)
-        updateComponentRuntimeStates(voltages: voltages, x: outcome.singular ? x0 : outcome.x, dt: h)
+        updateComponentRuntimeStates(voltages: voltages, x: outcome.singular ? x0 : outcome.x, dt: h, mode: mode)
 
         return SimulationStepResult(
             time: currentTime,
@@ -118,14 +125,14 @@ public final class MNASolver {
     }
 
     /// Solves the (possibly non-linear) circuit equations at one time point.
-    func newtonSolve(time t: Double, h: Double, initial x0: [Double]) -> NewtonOutcome {
+    func newtonSolve(time t: Double, h: Double, mode: StampMode, initial x0: [Double]) -> NewtonOutcome {
         var x = x0
         let nonlinear = circuit.components.contains { Self.isNonlinear($0.kind) }
         var iterations = 0
         while iterations < tolerances.maxIterations {
             iterations += 1
             var sys = MNASystem(nodeCount: totalNodes, auxCount: auxCount)
-            let ctx = StampContext(x: x, nodeCount: totalNodes, time: t, h: h)
+            let ctx = StampContext(x: x, nodeCount: totalNodes, time: t, h: h, mode: mode)
             for comp in circuit.components {
                 stamp(comp, nodes: nodeIndices(for: comp), into: &sys, ctx: ctx)
             }
@@ -197,7 +204,7 @@ public final class MNASolver {
     /// How many auxiliary MNA variables a part needs (1 for each ideal source / constraint).
     static func auxiliaryRowCount(for comp: CircuitComponent) -> Int {
         switch comp.kind {
-        case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator, .opAmp, .vcvs:
+        case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator, .opAmp, .vcvs, .inductor:
             return 1
         case .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer:
             return 1
@@ -249,17 +256,22 @@ public final class MNASolver {
             sys.conductance(node(2), node(3), 1.0 / pcR)
 
         case .capacitor, .electrolyticCapacitor, .trimmerCapacitor:
-            // Backward Euler companion model: G = C/dt in parallel with a history source.
+            // Companion model: conductance G in parallel with a history current source.
+            //   backward Euler: i = C/h (v - v_n)
+            //   trapezoidal:    i = 2C/h (v - v_n) - i_n
             let c = max(comp.value, 1e-15)
-            let geq = c / ctx.h
-            sys.conductance(node(0), node(1), geq)
-            sys.current(from: node(1), to: node(0), geq * comp.runtimePrevVoltage)
-
-        case .inductor:
-            // Backward Euler companion model: G = dt/L in parallel with a history source.
-            let l = max(comp.value, 1e-12)
-            sys.conductance(node(0), node(1), ctx.h / l)
-            sys.current(from: node(0), to: node(1), comp.runtimePrevCurrent)
+            switch ctx.mode {
+            case .dc:
+                break // open circuit
+            case .backwardEuler:
+                let geq = c / ctx.h
+                sys.conductance(node(0), node(1), geq)
+                sys.current(from: node(1), to: node(0), geq * comp.runtimePrevVoltage)
+            case .trapezoidal:
+                let geq = 2.0 * c / ctx.h
+                sys.conductance(node(0), node(1), geq)
+                sys.current(from: node(1), to: node(0), geq * comp.runtimePrevVoltage + comp.runtimePrevCurrent)
+            }
 
         case .dcCurrentSource:
             // Current leaves the OUT terminal (pin 0), the way the symbol's arrow points.
@@ -297,6 +309,23 @@ public final class MNASolver {
 
         guard let k = auxStart[comp.id] else { return }
         switch comp.kind {
+        case .inductor:
+            // Branch current i (pin 0 -> pin 1) is an unknown, so the inductor is exact at DC (a short):
+            //   backward Euler: v - (L/h) i = -(L/h) i_n
+            //   trapezoidal:    v - (2L/h) i = -(2L/h) i_n - v_n
+            let l = max(comp.value, 1e-12)
+            sys.branch(k, plus: node(0), minus: node(1))
+            switch ctx.mode {
+            case .dc:
+                break
+            case .backwardEuler:
+                sys.branchDependsOnAux(k, aux: k, -l / ctx.h)
+                sys.setBranchRHS(k, -l / ctx.h * comp.runtimePrevCurrent)
+            case .trapezoidal:
+                sys.branchDependsOnAux(k, aux: k, -2.0 * l / ctx.h)
+                sys.setBranchRHS(k, -2.0 * l / ctx.h * comp.runtimePrevCurrent - comp.runtimePrevVoltage)
+            }
+
         case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator:
             sys.voltageSource(k, plus: node(0), minus: node(1), value: sourceTargetVoltage(comp, time: ctx.time))
 
@@ -522,7 +551,7 @@ public final class MNASolver {
 
     // MARK: - Runtime state
 
-    private func updateComponentRuntimeStates(voltages: [Int: Double], x: [Double], dt: Double) {
+    private func updateComponentRuntimeStates(voltages: [Int: Double], x: [Double], dt: Double, mode: StampMode) {
         for comp in circuit.components {
             let n = nodeIndices(for: comp)
             func v(_ i: Int) -> Double { i < n.count ? voltage(of: n[i], in: voltages) : 0.0 }
@@ -563,14 +592,20 @@ public final class MNASolver {
 
             case .capacitor, .electrolyticCapacitor, .trimmerCapacitor:
                 let c = max(comp.value, 1e-15)
-                comp.runtimeCurrent = c * (vDrop - comp.runtimePrevVoltage) / dt
+                switch mode {
+                case .dc: comp.runtimeCurrent = 0
+                case .backwardEuler: comp.runtimeCurrent = c * (vDrop - comp.runtimePrevVoltage) / dt
+                case .trapezoidal: comp.runtimeCurrent = 2.0 * c * (vDrop - comp.runtimePrevVoltage) / dt - comp.runtimePrevCurrent
+                }
                 comp.runtimePrevVoltage = vDrop
+                comp.runtimePrevCurrent = comp.runtimeCurrent
 
             case .inductor:
-                let l = max(comp.value, 1e-12)
-                let newI = comp.runtimePrevCurrent + (vDrop * dt / l)
-                comp.runtimeCurrent = newI
-                comp.runtimePrevCurrent = newI
+                if let k = auxStart[comp.id], totalNodes + k < x.count {
+                    comp.runtimeCurrent = x[totalNodes + k]
+                }
+                comp.runtimePrevCurrent = comp.runtimeCurrent
+                comp.runtimePrevVoltage = vDrop
 
             case .diode, .led, .schottkyDiode:
                 let model = Self.junctionModel(for: comp)

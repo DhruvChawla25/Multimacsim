@@ -54,6 +54,11 @@ public final class CircuitEditorViewModel: ObservableObject {
     public var traceB: [(time: Double, voltage: Double)] = []
     private let maxTraceSamples = 800
 
+    /// Capacitor / inductor integration rule, kept across file loads so the two can be compared.
+    @Published public var integrationMethod: IntegrationMethod = .trapezoidal {
+        didSet { solver.integrationMethod = integrationMethod }
+    }
+
     // Solver instance
     public private(set) var solver: MNASolver
     private var simulationTimer: AnyCancellable?
@@ -75,6 +80,12 @@ public final class CircuitEditorViewModel: ObservableObject {
     public convenience init(preset: PresetType) {
         self.init(circuit: Circuit())
         loadPreset(type: preset)
+    }
+
+    private func makeSolver(for circuit: Circuit) -> MNASolver {
+        let s = MNASolver(circuit: circuit, timeStep: 1e-4)
+        s.integrationMethod = integrationMethod
+        return s
     }
 
     // MARK: - Simulation Control
@@ -314,7 +325,7 @@ public final class CircuitEditorViewModel: ObservableObject {
 
     private func loadCircuit(_ newCircuit: Circuit, url: URL?) {
         circuit = newCircuit
-        solver = MNASolver(circuit: newCircuit, timeStep: 1e-4)
+        solver = makeSolver(for: newCircuit)
         currentFileURL = url
         selectedComponentId = nil
         selectedWireId = nil
@@ -536,7 +547,7 @@ public final class CircuitEditorViewModel: ObservableObject {
 
         selectedComponentId = nil
         selectedWireId = nil
-        solver = MNASolver(circuit: circuit, timeStep: 1e-4)
+        solver = makeSolver(for: circuit)
         oscilloscopeChannelACompId = circuit.components.first(where: { $0.kind.isCapacitive || $0.kind.isJunctionDiode || $0.kind == .resistor })?.id
         oscilloscopeChannelBCompId = nil
         oscilloscopeChannelAShowsCurrent = false

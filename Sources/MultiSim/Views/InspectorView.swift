@@ -341,6 +341,23 @@ public struct InspectorView: View {
             .background(Color.primary.opacity(0.04))
             .clipShape(RoundedRectangle(cornerRadius: 6))
 
+            VStack(alignment: .leading, spacing: 4) {
+                Text("SOLVER")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Picker("Integration", selection: $viewModel.integrationMethod) {
+                    ForEach(IntegrationMethod.allCases, id: \.self) { m in
+                        Text(m.rawValue).tag(m)
+                    }
+                }
+                .controlSize(.small)
+                Text(viewModel.integrationMethod == .trapezoidal
+                     ? "Second order, keeps LC energy. One backward-Euler step at start-up and at every source edge stops it ringing."
+                     : "First order and heavily damped: LC tanks lose energy every cycle. Switch back to compare.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             VStack(alignment: .leading, spacing: 6) {
                 Button(action: { viewModel.autoConnectFacingPins() }) {
                     Label("Auto-Connect Facing Terminals", systemImage: "link")
