@@ -110,6 +110,10 @@ extension ComponentKind {
                 ExtraParameter("modFreq", .log("Modulating Frequency:", "Hz", 1e-3...1e6, slider: 0.1...1e4, eSeries: true), default: 50),
                 ExtraParameter("offset", .linear("DC Offset:", "A", -100...100, slider: -0.1...0.1), default: 0),
             ]
+        case .pwlCurrentSource:
+            return [
+                ExtraParameter("period", .linear("Repeat Period (0 = hold the last value):", "s", 0...1000, slider: 0...0.1), default: 4e-3),
+            ]
         default:
             return []
         }
@@ -118,6 +122,9 @@ extension ComponentKind {
     /// Free-text setting, if the part has one.
     public var textParameter: TextParameter? {
         switch self {
+        case .pwlCurrentSource:
+            return TextParameter(label: "Points (time current, one pair per line):", defaultText: "0 0\n1m 10m\n2m 10m\n3m 0",
+                                 help: "Straight lines join the points. Current in amps: 10m = 10 mA. Times: 1m = 1 ms.")
         case .pwlVoltage:
             return TextParameter(label: "Points (time value, one pair per line):", defaultText: "0 0\n1m 5\n2m 5\n3m 0",
                                  help: "Straight lines join the points. Use engineering suffixes: 1m = 1 ms, 2.5u = 2.5 µs.")
@@ -129,7 +136,7 @@ extension ComponentKind {
 
 extension ComponentKind {
     /// Sources whose text setting is a PWL point list.
-    public var usesPWLText: Bool { self == .pwlVoltage }
+    public var usesPWLText: Bool { self == .pwlVoltage || self == .pwlCurrentSource }
 }
 
 extension CircuitComponent {

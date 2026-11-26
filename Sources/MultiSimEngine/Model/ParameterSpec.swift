@@ -103,6 +103,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "A", range: -100...100, sliderRange: -0.1...0.1, isLogarithmic: false, usesESeries: false)
             case .fmCurrentSource:
                 return ParameterSpec(label: label, unit: "A", range: 0...100, sliderRange: 0...0.1, isLogarithmic: false, usesESeries: false)
+            case .pwlCurrentSource:
+                return nil
             case .bjtNPN, .bjtPNP:
                 return nil
             }

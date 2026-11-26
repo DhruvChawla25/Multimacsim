@@ -57,4 +57,12 @@ final class CurrentSourceTests: XCTestCase {
         let t = 37e-4
         XCTAssertEqual(v.last!, 100 * 0.01 * sin(2 * .pi * 500 * t + 3 * sin(2 * .pi * 40 * t)), accuracy: 1e-9)
     }
+
+    func testPWLCurrentRampsThroughTheLoad() {
+        let src = make(.pwlCurrentSource, ["period": 0], text: "0 0\n1m 20m\n3m -20m")
+        XCTAssertNil(src.textValidationError)
+        let (_, _, v) = drive(src, dt: 0.3e-3, steps: 7) // 2.1 ms: 20 mA - 1.1/2 x 40 mA = -2 mA
+        XCTAssertEqual(v.last!, 100 * -0.002, accuracy: 1e-9)
+        XCTAssertNotNil(make(.pwlCurrentSource, text: "1m").textValidationError)
+    }
 }

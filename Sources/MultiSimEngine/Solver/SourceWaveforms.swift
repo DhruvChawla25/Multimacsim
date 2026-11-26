@@ -125,6 +125,8 @@ enum SourceWaveforms {
             return exponential(comp, at: t)
         case .fmCurrentSource:
             return fm(comp, at: t)
+        case .pwlCurrentSource:
+            return pwl(comp, at: t)
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -160,6 +162,8 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .pwlCurrentSource:
+            return pwlSpice(comp)
         case .fmCurrentSource:
             return "SFFM(\(comp.param("offset")) \(comp.value) \(frequency(comp, fallback: 500)) \(comp.param("modIndex")) \(comp.param("modFreq")))"
         case .exponentialCurrentSource:
@@ -298,6 +302,8 @@ enum SourceWaveforms {
     /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.
     static func fundamentalFrequency(_ comp: CircuitComponent) -> Double? {
         switch comp.kind {
+        case .pwlCurrentSource:
+            return comp.param("period") > 0 ? 1 / comp.param("period") : nil
         case .fmCurrentSource:
             return min(frequency(comp, fallback: 500), max(comp.param("modFreq"), 1e-3))
         case .clockCurrentSource:
@@ -327,6 +333,7 @@ enum SourceWaveforms {
 
     /// Earliest waveform corner of this source strictly after `t`.
     static func nextBreakpoint(_ comp: CircuitComponent, after t: Double) -> Double? {
+        if comp.kind == .pwlCurrentSource { return pwlBreakpoint(comp, after: t) }
         if comp.kind == .exponentialCurrentSource { return exponentialBreakpoint(comp, after: t) }
         if comp.kind == .pwlVoltage { return pwlBreakpoint(comp, after: t) }
         if comp.kind == .exponentialVoltage { return exponentialBreakpoint(comp, after: t) }

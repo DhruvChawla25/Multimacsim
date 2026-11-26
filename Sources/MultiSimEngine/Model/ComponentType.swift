@@ -72,6 +72,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case clockCurrentSource = "Clock Current Source"
     case exponentialCurrentSource = "Exponential Current Source"
     case fmCurrentSource = "FM Current Source"
+    case pwlCurrentSource = "Piecewise Linear Current Source"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -139,6 +140,8 @@ extension ComponentKind {
             return .signalCurrentSources
         case .fmCurrentSource:
             return .signalCurrentSources
+        case .pwlCurrentSource:
+            return .signalCurrentSources
         case .probe:
             return .probes
         }
@@ -200,6 +203,7 @@ extension ComponentKind {
         case .clockCurrentSource: return "I"
         case .exponentialCurrentSource: return "I"
         case .fmCurrentSource: return "I"
+        case .pwlCurrentSource: return "I"
         case .probe: return "P"
         }
     }
@@ -266,6 +270,7 @@ extension ComponentKind {
         case .clockCurrentSource: return "Clock / Pulse Current"
         case .exponentialCurrentSource: return "Exponential Current"
         case .fmCurrentSource: return "FM Current"
+        case .pwlCurrentSource: return "PWL Current"
         case .probe: return "Voltage Probe"
         }
     }
@@ -329,6 +334,7 @@ extension ComponentKind {
         case .clockCurrentSource: return "metronome.fill"
         case .exponentialCurrentSource: return "chart.line.uptrend.xyaxis.circle"
         case .fmCurrentSource: return "dot.radiowaves.right"
+        case .pwlCurrentSource: return "chart.xyaxis.line"
         case .probe: return "pin"
         }
     }
@@ -412,6 +418,7 @@ extension ComponentKind {
     /// Two-terminal independent current sources; current leaves pin 0, where the arrow points.
     public var isWaveformCurrentSource: Bool {
         switch self {
+        case .pwlCurrentSource: return true
         case .fmCurrentSource: return true
         case .exponentialCurrentSource: return true
         case .clockCurrentSource: return true
@@ -510,6 +517,7 @@ extension ComponentKind {
         case .clockCurrentSource: return PartDefaults(value: 0.01, secondaryValue: 1000)
         case .exponentialCurrentSource: return PartDefaults(value: 0.01)
         case .fmCurrentSource: return PartDefaults(value: 0.01, secondaryValue: 500)
+        case .pwlCurrentSource: return PartDefaults()
         default: return PartDefaults()
         }
     }
@@ -554,6 +562,7 @@ extension ComponentKind {
         case .clockCurrentSource: return "Pulse Current (A):"
         case .exponentialCurrentSource: return "Pulsed Value I2 (A):"
         case .fmCurrentSource: return "Amplitude (A peak):"
+        case .pwlCurrentSource: return "Value:"
         default: return "Value:"
         }
     }
