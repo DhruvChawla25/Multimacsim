@@ -158,4 +158,42 @@ final class ControlBlockTests: XCTestCase {
         XCTAssertNotNil(b.textValidationError)
         XCTAssertEqual(ControlBlocks.coefficients("0 1m 2k"), [0, 0.001, 2000])
     }
+
+    func testTransferFunctionStepResponse() {
+        // 1 / (1 ms·s + 1): a 1 ms low-pass. 1 V step from t = 0.
+        let (bench, b, _, _) = block(.transferFunctionBlock, inputs: [1], text: "num: 1\nden: 1m 1")
+        let solver = bench.solver(dt: 2e-5)
+        var worst = 0.0
+        for k in 1...250 {
+            let y = output(bench, b, solver.step())
+            worst = max(worst, abs(y - (1 - exp(-Double(k) * 2e-5 / 1e-3))))
+        }
+        XCTAssertLessThan(worst, 1e-3)
+    }
+
+    func testSecondOrderTransferFunctionResonance() throws {
+        // ω0² / (s² + 2ζω0·s + ω0²), ω0 = 2π·100, ζ = 0.1: peak gain 1/(2ζ) = 5 at f0.
+        let w0 = 2 * Double.pi * 100, z = 0.1
+        let text = "num: \(w0 * w0)\nden: 1 \(2 * z * w0) \(w0 * w0)"
+        let (bench, b, _, _) = block(.transferFunctionBlock, inputs: [1], text: text, source: .acVoltageSource, secondary: 100)
+        let ac = try ACSteadyStateAnalyzer.analyze(bench.circuit).get()
+        let h = ac.nodeVoltage(bench.node(b.pins[1]))
+        XCTAssertEqual(h.magnitude, 5, accuracy: 1e-9)
+        XCTAssertEqual(h.angleDegrees, -90, accuracy: 1e-6)
+        // The transient settles to the same amplitude.
+        let solver = bench.solver(dt: 1e-4)
+        var peak = 0.0
+        for k in 0..<3_000 { let y = output(bench, b, solver.step()); if k > 2_500 { peak = max(peak, abs(y)) } }
+        XCTAssertEqual(peak, 5, accuracy: 0.05)
+    }
+
+    func testTransferFunctionParsing() throws {
+        let tf = try TransferFunction.parse("num: 2 0\nden: 4 2 1").get()
+        XCTAssertEqual(tf.den, [1, 0.5, 0.25])
+        XCTAssertEqual(tf.num, [0, 0.5, 0])
+        XCTAssertNotNil(try? TransferFunction.parse("1\n1m 1").get()) // bare lines: numerator first
+        guard case .failure = TransferFunction.parse("num: 1 0 0\nden: 1 1") else { return XCTFail("improper") }
+        guard case .failure = TransferFunction.parse("num: 1\nden: 0") else { return XCTFail("zero denominator") }
+        guard case .failure = TransferFunction.parse("num: 1") else { return XCTFail("missing denominator") }
+    }
 }

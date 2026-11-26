@@ -725,6 +725,8 @@ public struct SchematicCanvasView: View {
             return "SR ↑\(EngineeringFormatter.units(comp.value, "V/s"))"
         case .polynomialBlock:
             return "P(x), \(max(ControlBlocks.coefficients(comp.textValue)?.count ?? 1, 1) - 1). order"
+        case .transferFunctionBlock:
+            return ControlBlocks.transferFunction(comp.textValue).map { "H(s), order \($0.order)" } ?? "H(s) ?"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

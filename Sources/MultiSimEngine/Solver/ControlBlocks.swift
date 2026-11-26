@@ -34,6 +34,8 @@ public enum ControlBlocks {
     public static func label(_ kind: ComponentKind) -> String {
         switch kind {
         // <labels>
+        case .transferFunctionBlock:
+            return "H(s)"
         case .polynomialBlock:
             return "P(x)"
         case .slewRateBlock:
@@ -70,6 +72,11 @@ public enum ControlBlocks {
         let zero = [Double](repeating: 0, count: u.count)
         switch comp.kind {
         // <eval>
+        case .transferFunctionBlock:
+            guard let tf = transferFunction(comp.textValue) else { return Linearized(value: 0, partials: [0]) }
+            let (x, uPrev) = tfState(comp, tf: tf, input: u[0])
+            let (c0, g) = tf.step(state: x, uPrev: uPrev, h: h)
+            return Linearized(value: c0 + g * u[0], partials: [g])
         case .polynomialBlock:
             // V(out) = a0 + a1·u + a2·u² + ... (Horner, with the derivative alongside)
             let a = coefficients(comp.textValue) ?? [0]
@@ -144,6 +151,10 @@ public enum ControlBlocks {
     static func accept(_ comp: CircuitComponent, inputs u: [Double], output y: Double, h: Double) {
         switch comp.kind {
         // <accept>
+        case .transferFunctionBlock:
+            guard let tf = transferFunction(comp.textValue), h > 0 else { break }
+            let (x, uPrev) = tfState(comp, tf: tf, input: u[0])
+            comp.runtimeState = tf.advance(state: x, uPrev: uPrev, u: u[0], h: h) + [u[0]]
         case .slewRateBlock:
             comp.runtimeState = [y]
         case .hysteresisBlock:
@@ -163,6 +174,9 @@ public enum ControlBlocks {
     static func acGains(_ comp: CircuitComponent, omega: Double, op: [Double]?) -> [Complex]? {
         switch comp.kind {
         // <ac>
+        case .transferFunctionBlock:
+            guard let tf = transferFunction(comp.textValue) else { return nil }
+            return [tf.response(omega: omega)]
         case .slewRateBlock:
             guard op != nil else { return nil }
             return [Complex(1)] // a small signal is never slew limited
@@ -215,6 +229,9 @@ public enum ControlBlocks {
     static func textError(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
         // <text>
+        case .transferFunctionBlock:
+            if case .failure(let e) = TransferFunction.parse(comp.textValue) { return e.message }
+            return nil
         case .polynomialBlock:
             return coefficients(comp.textValue) == nil ? "Enter one or more numbers, lowest power first (e.g. 0, 1, 0.5)." : nil
         default:
@@ -245,11 +262,116 @@ public enum ControlBlocks {
         return out
     }
 
+    /// Parsed transfer function, nil if the text is not valid.
+    public static func transferFunction(_ text: String) -> TransferFunction? {
+        if case .success(let tf) = TransferFunction.parse(text) { return tf }
+        return nil
+    }
+
+    /// State vector and previous input of a transfer-function block (zero state, input held over the first step).
+    static func tfState(_ comp: CircuitComponent, tf: TransferFunction, input u: Double) -> ([Double], Double) {
+        if comp.runtimeState.count == tf.order + 1 {
+            return (Array(comp.runtimeState.prefix(tf.order)), comp.runtimeState[tf.order])
+        }
+        return ([Double](repeating: 0, count: tf.order), u)
+    }
+
     /// Clamps `v` into [lo, hi] (either order) and reports whether it was inside.
     static func clamp(_ v: Double, _ a: Double, _ b: Double) -> (Double, Bool) {
         let lo = min(a, b), hi = max(a, b)
         if v > hi { return (hi, false) }
         if v < lo { return (lo, false) }
         return (v, true)
+    }
+}
+
+/// H(s) = N(s) / D(s) as a controllable-canonical state-space model, stepped with the bilinear
+/// (trapezoidal) rule so it is A-stable and matches the solver's own integration.
+public struct TransferFunction: Equatable, Sendable {
+    /// Coefficients from the highest power of s down; den[0] == 1 after normalising.
+    public let num: [Double]
+    public let den: [Double]
+    public var order: Int { den.count - 1 }
+
+    public struct ParseError: Error, Equatable, Sendable {
+        public let message: String
+    }
+
+    public static func parse(_ text: String) -> Result<TransferFunction, ParseError> {
+        var num: [Double]?, den: [Double]?
+        let lines = text.split(whereSeparator: { $0 == "\n" || $0 == ";" }).map { String($0) }.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        for (i, rawLine) in lines.enumerated() {
+            var line = rawLine.trimmingCharacters(in: .whitespaces)
+            var target = i == 0 ? "num" : "den"
+            let lower = line.lowercased()
+            for key in ["num", "den", "n", "d"] where lower.hasPrefix(key) {
+                let rest = line.dropFirst(key.count).trimmingCharacters(in: .whitespaces)
+                if rest.hasPrefix(":") || rest.hasPrefix("=") {
+                    target = key.hasPrefix("n") ? "num" : "den"
+                    line = String(rest.dropFirst())
+                    break
+                }
+            }
+            guard let c = ControlBlocks.coefficients(line) else { return .failure(ParseError(message: "\"\(rawLine)\" is not a list of numbers.")) }
+            if target == "num" { num = c } else { den = c }
+        }
+        guard var n = num, var d = den else { return .failure(ParseError(message: "Give two lines: \"num: ...\" and \"den: ...\".")) }
+        while let f = d.first, f == 0, d.count > 1 { d.removeFirst() }
+        while let f = n.first, f == 0, n.count > 1 { n.removeFirst() }
+        guard let lead = d.first, lead != 0 else { return .failure(ParseError(message: "The denominator cannot be zero.")) }
+        guard n.count <= d.count else { return .failure(ParseError(message: "deg N must not exceed deg D (the block would need a pure differentiator).")) }
+        d = d.map { $0 / lead }
+        n = [Double](repeating: 0, count: d.count - n.count) + n.map { $0 / lead }
+        return .success(TransferFunction(num: n, den: d))
+    }
+
+    /// Frequency response H(jω).
+    public func response(omega: Double) -> Complex {
+        func poly(_ c: [Double]) -> Complex {
+            c.reduce(Complex.zero) { acc, a in acc * Complex(0, omega) + Complex(a) }
+        }
+        return poly(num) / poly(den)
+    }
+
+    private var feedthrough: Double { num[0] }
+    /// C row of the canonical form: strictly proper numerator coefficients.
+    private var cRow: [Double] { (1...max(order, 1)).map { $0 <= order ? num[$0] - feedthrough * den[$0] : 0 } }
+
+    /// (I ∓ h/2·A) for the companion matrix A.
+    private func shifted(_ sign: Double, h: Double) -> Matrix {
+        var m = Matrix(rows: order, cols: order)
+        for i in 0..<order { m[i, i] = 1 }
+        for j in 0..<order { m[0, j] += sign * h / 2 * -den[j + 1] }
+        for i in 1..<max(order, 1) where i < order { m[i, i - 1] += sign * h / 2 }
+        return m
+    }
+
+    private func pieces(state x: [Double], uPrev: Double, h: Double) -> (w: [Double], v: [Double])? {
+        let p = shifted(-1, h: h), q = shifted(1, h: h)
+        var rhs = (0..<order).map { i in (0..<order).reduce(0) { $0 + q[i, $1] * x[$1] } }
+        rhs[0] += h / 2 * uPrev
+        var b = [Double](repeating: 0, count: order)
+        b[0] = h / 2
+        guard let w = p.solve(b: rhs), let v = p.solve(b: b) else { return nil }
+        return (w, v)
+    }
+
+    /// Output over one step as c0 + g·u(t+h).
+    public func step(state x: [Double], uPrev: Double, h: Double) -> (Double, Double) {
+        guard order > 0 else { return (0, feedthrough) }
+        guard h > 0 else {
+            // DC: the steady-state gain N(0)/D(0), or hold the state if D(0) = 0 (an integrator).
+            if den[order] != 0 { return (0, num[order] / den[order]) }
+            return (zip(cRow, x).reduce(0) { $0 + $1.0 * $1.1 }, feedthrough)
+        }
+        guard let (w, v) = pieces(state: x, uPrev: uPrev, h: h) else { return (0, feedthrough) }
+        let c = cRow
+        return (zip(c, w).reduce(0) { $0 + $1.0 * $1.1 }, zip(c, v).reduce(feedthrough) { $0 + $1.0 * $1.1 })
+    }
+
+    /// State after a step with input u at its end.
+    public func advance(state x: [Double], uPrev: Double, u: Double, h: Double) -> [Double] {
+        guard order > 0, let (w, v) = pieces(state: x, uPrev: uPrev, h: h) else { return x }
+        return zip(w, v).map { $0 + $1 * u }
     }
 }

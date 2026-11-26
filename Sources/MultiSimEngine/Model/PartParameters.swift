@@ -184,6 +184,9 @@ extension ComponentKind {
     /// Free-text setting, if the part has one.
     public var textParameter: TextParameter? {
         switch self {
+        case .transferFunctionBlock:
+            return TextParameter(label: "Transfer function H(s) = N(s) / D(s):", defaultText: "num: 1\nden: 1m 1",
+                                 help: "Coefficients from the highest power of s down: \"den: 1m 1\" is 1e-3·s + 1, a 1 ms low-pass. Needs deg N ≤ deg D.")
         case .polynomialBlock:
             return TextParameter(label: "Coefficients a0, a1, a2, ... (V(out) = a0 + a1·x + a2·x² + ...):", defaultText: "0, 1, 0.5",
                                  help: "Comma or space separated, lowest power first. Engineering suffixes allowed (2m = 0.002).")
