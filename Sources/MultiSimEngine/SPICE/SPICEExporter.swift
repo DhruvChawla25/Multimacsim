@@ -59,9 +59,9 @@ public final class SPICEExporter {
             case .clockSource:
                 let nPlus = n.count > 0 ? n[0] : "0"
                 let nMinus = n.count > 1 ? n[1] : "0"
-                let freq = comp.secondaryValue > 0 ? comp.secondaryValue : 1000.0
-                let period = 1.0 / freq
-                lines.append("\(name) \(nPlus) \(nMinus) PULSE(0 \(comp.value) 0 1n 1n \(period*0.5) \(period))")
+                if let p = SourceWaveforms.pulse(for: comp) {
+                    lines.append("\(name) \(nPlus) \(nMinus) PULSE(\(p.v1) \(p.v2) \(p.delay) \(p.rise) \(p.fall) \(p.width) \(p.period))")
+                }
 
             case .dcCurrentSource:
                 let nOut = n.count > 0 ? n[0] : "0"

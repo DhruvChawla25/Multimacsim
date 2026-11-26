@@ -41,6 +41,12 @@ extension ComponentKind {
                 ExtraParameter("duty", .linear("Duty Cycle (square / triangle rise):", "%", 1...99), default: 50),
                 ExtraParameter("offset", .linear("DC Offset:", "V", -100...100, slider: -10...10), default: 0),
             ]
+        case .clockSource:
+            return [
+                ExtraParameter("duty", .linear("Duty Cycle:", "%", 1...99), default: 50),
+                ExtraParameter("delay", .linear("Start Delay:", "s", 0...100, slider: 0...0.01), default: 0),
+                ExtraParameter("edge", .log("Rise / Fall Time:", "s", 1e-12...1, slider: 1e-9...1e-3), default: 1e-9),
+            ]
         case .threePhaseWye, .threePhaseDelta:
             return [ExtraParameter("phase", .linear("Phase A Angle:", "°", -360...360, slider: -180...180), default: 0)]
         case .amVoltage:

@@ -26,9 +26,10 @@ public struct PulseShape: Sendable, Equatable {
     public static let idealEdge = 1e-9
 
     /// Square wave between `low` and `high` at `frequency`, high for `duty` of each period, starting high.
-    public static func square(low: Double, high: Double, frequency: Double, duty: Double = 0.5, delay: Double = 0) -> PulseShape {
+    public static func square(low: Double, high: Double, frequency: Double, duty: Double = 0.5, delay: Double = 0,
+                              edge requestedEdge: Double? = nil) -> PulseShape {
         let period = 1.0 / max(frequency, 1e-12)
-        let edge = min(idealEdge, period * 1e-3)
+        let edge = min(requestedEdge ?? idealEdge, period * 0.25)
         let d = min(max(duty, 0.001), 0.999)
         return PulseShape(v1: low, v2: high, delay: delay, rise: edge, fall: edge,
                           width: max(period * d - edge, 0), period: period)
@@ -74,7 +75,8 @@ enum SourceWaveforms {
     static func pulse(for comp: CircuitComponent) -> PulseShape? {
         switch comp.kind {
         case .clockSource:
-            return .square(low: 0, high: comp.value, frequency: frequency(comp, fallback: 1000))
+            return .square(low: 0, high: comp.value, frequency: frequency(comp, fallback: 1000),
+                           duty: comp.param("duty") / 100, delay: comp.param("delay"), edge: comp.param("edge"))
         case .pulseVoltage:
             return PulseShape(v1: comp.param("v1"), v2: comp.value, delay: comp.param("delay"),
                               rise: comp.param("rise"), fall: comp.param("fall"),

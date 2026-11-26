@@ -99,4 +99,16 @@ final class SignalSourceTests: XCTestCase {
         XCTAssertEqual(v.last!, 2, accuracy: 1e-9)
         XCTAssertTrue(SPICEExporter.export(circuit: Circuit(components: [p])).contains("PULSE(-1.0 5.0 0.001"))
     }
+
+    func testClockHasDutyDelayAndEdges() {
+        let clk = make(.clockSource, value: 5, secondary: 1000, ["duty": 25, "delay": 0.1e-3, "edge": 10e-6])
+        XCTAssertEqual(SourceWaveforms.value(clk, at: 0.05e-3), 0)
+        XCTAssertEqual(SourceWaveforms.value(clk, at: 0.105e-3), 2.5, accuracy: 1e-9) // half way up the 10 µs edge
+        XCTAssertEqual(SourceWaveforms.value(clk, at: 0.3e-3), 5)
+        XCTAssertEqual(SourceWaveforms.value(clk, at: 0.4e-3), 0)                    // 25 % of 1 ms after the delay
+        // Old circuits (no extras saved) keep the ideal 50 % square wave.
+        let old = make(.clockSource, value: 5, secondary: 1000)
+        XCTAssertEqual(SourceWaveforms.value(old, at: 0.4e-3), 5)
+        XCTAssertEqual(SourceWaveforms.value(old, at: 0.6e-3), 0)
+    }
 }
