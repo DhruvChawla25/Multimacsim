@@ -34,6 +34,8 @@ public enum ControlBlocks {
     public static func label(_ kind: ComponentKind) -> String {
         switch kind {
         // <labels>
+        case .hysteresisBlock:
+            return "hys"
         case .limiterBlock:
             return "lim"
         case .differentiatorBlock:
@@ -64,6 +66,9 @@ public enum ControlBlocks {
         let zero = [Double](repeating: 0, count: u.count)
         switch comp.kind {
         // <eval>
+        case .hysteresisBlock:
+            // Schmitt trigger: goes high above the upper threshold, low below the lower one, otherwise holds.
+            return Linearized(value: hysteresisLevel(comp, input: u[0]).value, partials: [0])
         case .limiterBlock:
             // V(out) = K·u clipped to [lower, upper]
             let (y, inside) = clamp(comp.value * u[0], comp.param("lower"), comp.param("upper"))
@@ -117,6 +122,8 @@ public enum ControlBlocks {
     static func accept(_ comp: CircuitComponent, inputs u: [Double], output y: Double, h: Double) {
         switch comp.kind {
         // <accept>
+        case .hysteresisBlock:
+            comp.runtimeState = [hysteresisLevel(comp, input: u[0]).high ? 1 : 0]
         case .differentiatorBlock:
             comp.runtimeState = [u[0]]
         case .integratorBlock:
@@ -180,6 +187,17 @@ public enum ControlBlocks {
         default:
             return nil
         }
+    }
+
+    /// Output level of the hysteresis block for input `u`, starting from its last accepted state.
+    static func hysteresisLevel(_ comp: CircuitComponent, input u: Double) -> (high: Bool, value: Double) {
+        let upper = max(comp.param("upperThreshold"), comp.param("lowerThreshold"))
+        let lower = min(comp.param("upperThreshold"), comp.param("lowerThreshold"))
+        var high: Bool
+        if let s = comp.runtimeState.first { high = s > 0.5 } else { high = u > (upper + lower) / 2 }
+        if high && u < lower { high = false }
+        if !high && u > upper { high = true }
+        return (high, high ? comp.param("outHigh") : comp.param("outLow"))
     }
 
     /// Clamps `v` into [lo, hi] (either order) and reports whether it was inside.

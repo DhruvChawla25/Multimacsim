@@ -165,6 +165,13 @@ extension ComponentKind {
                 ExtraParameter("upper", .linear("Upper Limit:", "V", -1e6...1e6, slider: -24...24), default: 5),
                 ExtraParameter("lower", .linear("Lower Limit:", "V", -1e6...1e6, slider: -24...24), default: -5),
             ]
+        case .hysteresisBlock:
+            return [
+                ExtraParameter("upperThreshold", .linear("Upper (rising) Threshold:", "V", -1e6...1e6, slider: -10...10), default: 1),
+                ExtraParameter("lowerThreshold", .linear("Lower (falling) Threshold:", "V", -1e6...1e6, slider: -10...10), default: -1),
+                ExtraParameter("outHigh", .linear("Output High:", "V", -1e6...1e6, slider: -24...24), default: 5),
+                ExtraParameter("outLow", .linear("Output Low:", "V", -1e6...1e6, slider: -24...24), default: -5),
+            ]
         default:
             return []
         }

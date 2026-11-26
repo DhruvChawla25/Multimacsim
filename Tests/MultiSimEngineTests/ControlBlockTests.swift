@@ -116,4 +116,22 @@ final class ControlBlockTests: XCTestCase {
         XCTAssertEqual(v.min()!, -1, accuracy: 1e-9)
         XCTAssertEqual(v[9], 2 * 3 * sin(2 * .pi * 50 * 1e-3), accuracy: 1e-9) // unclipped region is K·u
     }
+
+    func testHysteresisSwitchesAtDifferentThresholds() {
+        let (bench, b, _, _) = block(.hysteresisBlock, inputs: [2], source: .acVoltageSource, secondary: 50) // ±1 V thresholds
+        let solver = bench.solver(dt: 1e-4)
+        var risingSwitch: Double?, fallingSwitch: Double?
+        var last = output(bench, b, solver.step())
+        for k in 2...400 {
+            let y = output(bench, b, solver.step())
+            let t = Double(k) * 1e-4
+            if y > last { risingSwitch = risingSwitch ?? t }
+            if y < last { fallingSwitch = fallingSwitch ?? t }
+            last = y
+        }
+        // 2 sin(ωt) crosses +1 V going up at 1.667 ms and -1 V going down at 11.667 ms.
+        XCTAssertEqual(try XCTUnwrap(fallingSwitch), 0.011667, accuracy: 1.5e-4)
+        XCTAssertEqual(try XCTUnwrap(risingSwitch), 0.021667, accuracy: 1.5e-4)
+        XCTAssertEqual(Set([5.0, -5.0]).contains(last), true)
+    }
 }

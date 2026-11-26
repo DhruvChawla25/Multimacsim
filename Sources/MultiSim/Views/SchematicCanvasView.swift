@@ -719,6 +719,8 @@ public struct SchematicCanvasView: View {
             return "d/dt K = \(String(format: "%.4g", comp.value))"
         case .limiterBlock:
             return "[\(EngineeringFormatter.voltage(comp.param("lower"))), \(EngineeringFormatter.voltage(comp.param("upper")))]"
+        case .hysteresisBlock:
+            return "⇅ \(EngineeringFormatter.voltage(comp.param("lowerThreshold"))) / \(EngineeringFormatter.voltage(comp.param("upperThreshold")))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

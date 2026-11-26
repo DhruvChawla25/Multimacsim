@@ -127,6 +127,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "s", range: -1e6...1e6, sliderRange: -1...1, isLogarithmic: false, usesESeries: false)
             case .limiterBlock:
                 return ParameterSpec(label: label, unit: "V/V", range: -1e9...1e9, sliderRange: -100...100, isLogarithmic: false, usesESeries: false)
+            case .hysteresisBlock:
+                return nil
             case .bjtNPN, .bjtPNP:
                 return nil
             }
