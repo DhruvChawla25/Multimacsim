@@ -77,6 +77,9 @@ enum SourceWaveforms {
         case .clockSource:
             return .square(low: 0, high: comp.value, frequency: frequency(comp, fallback: 1000),
                            duty: comp.param("duty") / 100, delay: comp.param("delay"), edge: comp.param("edge"))
+        case .clockCurrentSource:
+            return .square(low: 0, high: comp.value, frequency: frequency(comp, fallback: 1000),
+                           duty: comp.param("duty") / 100, edge: comp.param("edge"))
         case .bipolarVoltage:
             // Swings symmetrically between -V and +V; +V first.
             return .square(low: -comp.value, high: comp.value, frequency: frequency(comp, fallback: 1000),
@@ -116,6 +119,8 @@ enum SourceWaveforms {
             return comp.param("offset") + noise(comp, at: t)
         case .acCurrentSource:
             return comp.value * sin(2.0 * .pi * frequency(comp, fallback: 1000) * t)
+        case .clockCurrentSource:
+            return pulse(for: comp)?.value(at: t) ?? 0
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -151,6 +156,9 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .clockCurrentSource:
+            let p = pulse(for: comp)!
+            return "PULSE(\(p.v1) \(p.v2) \(p.delay) \(p.rise) \(p.fall) \(p.width) \(p.period))"
         case .acCurrentSource:
             return "SIN(0 \(comp.value) \(frequency(comp, fallback: 1000))) AC \(comp.value)"
         case .whiteNoiseVoltage:
@@ -281,6 +289,8 @@ enum SourceWaveforms {
     /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.
     static func fundamentalFrequency(_ comp: CircuitComponent) -> Double? {
         switch comp.kind {
+        case .clockCurrentSource:
+            return frequency(comp, fallback: 1000)
         case .acCurrentSource:
             return frequency(comp, fallback: 1000)
         case .whiteNoiseVoltage:

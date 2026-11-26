@@ -182,6 +182,8 @@ public struct ComponentSymbolView: View {
             SignalSourceSymbol(glyph: .noise).stroke(symbolColor, lineWidth: lineWidth)
         case .acCurrentSource:
             SignalSourceSymbol(glyph: .sine, isCurrent: true).stroke(symbolColor, lineWidth: lineWidth)
+        case .clockCurrentSource:
+            SignalSourceSymbol(glyph: .square, isCurrent: true).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:

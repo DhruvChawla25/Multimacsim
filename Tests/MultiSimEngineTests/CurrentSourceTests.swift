@@ -30,4 +30,18 @@ final class CurrentSourceTests: XCTestCase {
         XCTAssertEqual(ac.phasor(for: r.id)!.peakVoltage, 2.0, accuracy: 1e-9)
         XCTAssertEqual(ac.referenceSource.id, src.id)
     }
+
+    /// A clock current charging a capacitor makes a staircase: it only climbs while the current is on.
+    func testClockCurrentChargesACapacitorInSteps() {
+        let bench = TestBench()
+        let src = make(.clockCurrentSource, value: 1e-3, secondary: 1000, ["duty": 25])
+        bench.components.append(src)
+        let c = bench.add(.capacitor, "C1", value: 1e-6)
+        bench.wire(src.pins[0], c.pins[0]); bench.ground(src.pins[1], c.pins[1])
+        let solver = bench.solver(dt: 0.1e-3)
+        var res = solver.step()
+        for _ in 1..<20 { res = solver.step() } // 2 ms = 2 periods, on for 0.25 ms each
+        // ΔV = I·t_on / C = 1 mA · 0.5 ms / 1 µF = 0.5 V
+        XCTAssertEqual(bench.voltage(c.pins[0], res), 0.5, accuracy: 0.002)
+    }
 }
