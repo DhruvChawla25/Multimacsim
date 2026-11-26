@@ -729,6 +729,8 @@ public struct SchematicCanvasView: View {
             return ControlBlocks.transferFunction(comp.textValue).map { "H(s), order \($0.order)" } ?? "H(s) ?"
         case .digitalClock:
             return "CLK \(EngineeringFormatter.units(comp.secondaryValue, "Hz"))"
+        case .digitalConstant:
+            return "LOGIC \(comp.stateBool ? 1 : 0)"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

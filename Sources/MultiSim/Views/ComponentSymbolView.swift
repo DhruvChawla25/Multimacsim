@@ -20,7 +20,7 @@ public struct ComponentSymbolView: View {
                 Text(letter)
                     .font(.system(size: component.kind.isControlBlock ? (letter.count > 2 ? 9 : 13) : 15, weight: .bold, design: .rounded))
                     .foregroundStyle(symbolColor)
-                    .offset(y: component.kind == .wattmeter ? -14 : 0)
+                    .offset(x: component.kind.isDigitalSource ? -5 : 0, y: component.kind == .wattmeter ? -14 : 0)
                     .rotationEffect(.degrees(Double(component.rotation)))
             }
 
@@ -47,6 +47,7 @@ public struct ComponentSymbolView: View {
     /// Letter shown inside an instrument face.
     private var meterLetter: String? {
         if component.kind.isControlBlock { return ControlBlocks.label(component.kind) }
+        if component.kind == .digitalConstant { return component.stateBool ? "1" : "0" }
         switch component.kind {
         case .ammeter: return "A"
         case .voltmeter: return "V"
@@ -238,6 +239,8 @@ public struct ComponentSymbolView: View {
             EmptyView()
         case .digitalClock:
             DigitalSourceSymbol(glyph: .square).stroke(symbolColor, lineWidth: lineWidth)
+        case .digitalConstant:
+            DigitalSourceSymbol().stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:

@@ -21,4 +21,18 @@ final class DigitalSourceTests: XCTestCase {
         XCTAssertEqual(ins.filter { $0 > 2.5 }.count, 10, accuracy: 1)
         XCTAssertEqual(clk.runtimeReading, ins.last! > 2.5 ? 1 : 0)
     }
+
+    /// Two digital constants into an AND gate: the truth table.
+    func testDigitalConstantsDriveAnAndGate() {
+        for (a, b) in [(false, false), (false, true), (true, false), (true, true)] {
+            let bench = TestBench()
+            let ca = bench.add(.digitalConstant, "A", closed: a)
+            let cb = bench.add(.digitalConstant, "B", closed: b)
+            let gate = bench.add(.logicAND, "U1")
+            bench.wire(ca.pins[0], gate.pins[0]); bench.wire(cb.pins[0], gate.pins[1])
+            let res = bench.solver().step()
+            XCTAssertEqual(bench.voltage(gate.pins[2], res), a && b ? 5 : 0, "\(a) AND \(b)")
+            XCTAssertEqual(bench.voltage(ca.pins[0], res), a ? 5 : 0)
+        }
+    }
 }

@@ -94,6 +94,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case transferFunctionBlock = "Transfer Function Block"
     // Digital sources (v6): one output terminal, logic levels against (digital) ground
     case digitalClock = "Digital Clock"
+    case digitalConstant = "Digital Constant"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -193,6 +194,8 @@ extension ComponentKind {
             return .controlFunctionBlocks
         case .digitalClock:
             return .digitalSources
+        case .digitalConstant:
+            return .digitalSources
         case .probe:
             return .probes
         }
@@ -272,6 +275,7 @@ extension ComponentKind {
         case .polynomialBlock: return "A"
         case .transferFunctionBlock: return "A"
         case .digitalClock: return "U_CLK"
+        case .digitalConstant: return "U_LOGIC"
         case .probe: return "P"
         }
     }
@@ -358,6 +362,7 @@ extension ComponentKind {
         case .polynomialBlock: return "Polynomial P(x)"
         case .transferFunctionBlock: return "Transfer Function H(s)"
         case .digitalClock: return "Digital Clock"
+        case .digitalConstant: return "Digital Constant (0 / 1)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -441,6 +446,7 @@ extension ComponentKind {
         case .polynomialBlock: return "function"
         case .transferFunctionBlock: return "function"
         case .digitalClock: return "clock.badge"
+        case .digitalConstant: return "01.square"
         case .probe: return "pin"
         }
     }
@@ -653,6 +659,7 @@ extension ComponentKind {
         case .polynomialBlock: return PartDefaults()
         case .transferFunctionBlock: return PartDefaults()
         case .digitalClock: return PartDefaults(value: 5, secondaryValue: 100)
+        case .digitalConstant: return PartDefaults(value: 5, isClosed: true)
         default: return PartDefaults()
         }
     }
@@ -713,6 +720,7 @@ extension ComponentKind {
         case .polynomialBlock: return "Value:"
         case .transferFunctionBlock: return "Value:"
         case .digitalClock: return "Logic High Level (V):"
+        case .digitalConstant: return "Logic High Level (V):"
         default: return "Value:"
         }
     }
