@@ -172,7 +172,7 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
     public var bodyHalfSize: Double {
         switch kind {
         case .opAmp, .logicAND, .logicOR, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer,
-             .vcvs, .vccs, .ccvs, .cccs, .vcoSine, .wattmeter, .bjtNPN, .bjtPNP, .threePhaseWye, .threePhaseDelta:
+             .vcvs, .vccs, .ccvs, .cccs, .vcoSine, .vcoSquare, .wattmeter, .bjtNPN, .bjtPNP, .threePhaseWye, .threePhaseDelta:
             return 34
         case .ground, .probe, .digitalGround, .vccRail, .vddRail, .veeRail, .vssRail:
             return 22
@@ -329,7 +329,7 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
                 Pin(index: 0, name: "OUT", relativeX: 0, relativeY: -30),
                 Pin(index: 1, name: "IN", relativeX: 0, relativeY: 30)
             ]
-        case .vcoSine:
+        case .vcoSine, .vcoSquare:
             // Control voltage on the left, oscillator output on the right (like the VCVS).
             return [
                 Pin(index: 0, name: "OUT+", relativeX: 25, relativeY: -20),

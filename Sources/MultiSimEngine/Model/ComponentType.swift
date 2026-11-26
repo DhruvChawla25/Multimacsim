@@ -79,6 +79,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case abmVoltage = "ABM Voltage Source"
     case abmCurrent = "ABM Current Source"
     case vcoSine = "Voltage-Controlled Sine Wave"
+    case vcoSquare = "Voltage-Controlled Square Wave"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -152,7 +153,7 @@ extension ComponentKind {
             return .controlledSources
         case .abmVoltage, .abmCurrent:
             return .controlledSources
-        case .vcoSine:
+        case .vcoSine, .vcoSquare:
             return .controlledSources
         case .probe:
             return .probes
@@ -220,7 +221,7 @@ extension ComponentKind {
         case .cccs: return "F"
         case .abmVoltage: return "B"
         case .abmCurrent: return "B"
-        case .vcoSine: return "VCO"
+        case .vcoSine, .vcoSquare: return "VCO"
         case .probe: return "P"
         }
     }
@@ -293,6 +294,7 @@ extension ComponentKind {
         case .abmVoltage: return "ABM Voltage (expression)"
         case .abmCurrent: return "ABM Current (expression)"
         case .vcoSine: return "Voltage-Controlled Sine"
+        case .vcoSquare: return "Voltage-Controlled Square"
         case .probe: return "Voltage Probe"
         }
     }
@@ -362,6 +364,7 @@ extension ComponentKind {
         case .abmVoltage: return "function"
         case .abmCurrent: return "x.squareroot"
         case .vcoSine: return "waveform.path.ecg.rectangle"
+        case .vcoSquare: return "square.on.circle"
         case .probe: return "pin"
         }
     }
@@ -460,7 +463,7 @@ extension ComponentKind {
     /// Voltage-controlled sine / square / triangle oscillators.
     public var isVoltageControlledOscillator: Bool {
         switch self {
-        case .vcoSine: return true
+        case .vcoSine, .vcoSquare: return true
         default: return false
         }
     }
@@ -555,7 +558,7 @@ extension ComponentKind {
         case .pwlCurrentSource: return PartDefaults()
         case .ccvs: return PartDefaults(value: 1000)
         case .cccs: return PartDefaults(value: 10)
-        case .vcoSine: return PartDefaults(value: 1, secondaryValue: 1000)
+        case .vcoSine, .vcoSquare: return PartDefaults(value: 1, secondaryValue: 1000)
         default: return PartDefaults()
         }
     }
@@ -603,7 +606,7 @@ extension ComponentKind {
         case .pwlCurrentSource: return "Value:"
         case .ccvs: return "Transresistance r (V/A):"
         case .cccs: return "Current Gain β (A/A):"
-        case .vcoSine: return "Output Amplitude (Vp):"
+        case .vcoSine, .vcoSquare: return "Output Amplitude (Vp):"
         default: return "Value:"
         }
     }
@@ -619,7 +622,7 @@ extension ComponentKind {
         case .wattmeter: return "Pressure-Coil Resistance (Ω):"
         case .zenerDiode: return "Zener Breakdown (V):"
         case .bjtNPN, .bjtPNP: return "Current Gain (β / hFE):"
-        case .vcoSine: return "Frequency at 0 V Control (Hz):"
+        case .vcoSine, .vcoSquare: return "Frequency at 0 V Control (Hz):"
         case .fmCurrentSource: return "Carrier Frequency (Hz):"
         case .clockCurrentSource: return "Frequency (Hz):"
         case .acCurrentSource: return "Frequency (Hz):"

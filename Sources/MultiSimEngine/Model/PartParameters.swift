@@ -114,7 +114,7 @@ extension ComponentKind {
             return [
                 ExtraParameter("period", .linear("Repeat Period (0 = hold the last value):", "s", 0...1000, slider: 0...0.1), default: 4e-3),
             ]
-        case .vcoSine:
+        case .vcoSine, .vcoSquare:
             return [
                 ExtraParameter("gain", .linear("Tuning Gain (Hz per control volt):", "Hz/V", -1e6...1e6, slider: -5000...5000), default: 500),
                 ExtraParameter("offset", .linear("Output DC Offset:", "V", -100...100, slider: -10...10), default: 0),

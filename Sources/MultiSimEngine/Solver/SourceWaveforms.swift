@@ -295,9 +295,22 @@ enum SourceWaveforms {
     /// Unit-amplitude oscillator output at `phase` (cycles). All shapes rise through zero at phase 0.
     static func vcoShape(_ kind: ComponentKind, phase p: Double, frequency f: Double) -> Double {
         switch kind {
+        case .vcoSquare:
+            // ±1 with 1 ns edges (as a phase fraction), high for the first half cycle.
+            let w = min(max(PulseShape.idealEdge * f, 1e-9), 1e-3)
+            if p < w { return -1 + 2 * p / w }
+            if p < 0.5 { return 1 }
+            if p < 0.5 + w { return 1 - 2 * (p - 0.5) / w }
+            return -1
         default:
             return sin(2 * .pi * p)
         }
+    }
+
+    static func vcoSquareCorners(_ comp: CircuitComponent) -> [Double] {
+        let f = comp.runtimeState.count >= 2 ? comp.runtimeState[1] : comp.secondaryValue
+        let w = min(max(PulseShape.idealEdge * f, 1e-9), 1e-3)
+        return [0, w, 0.5, 0.5 + w]
     }
 
     /// Next corner of a VCO's waveform, predicted from its stored phase and frequency.
@@ -356,6 +369,7 @@ enum SourceWaveforms {
 
     /// Earliest waveform corner of this source strictly after `t`.
     static func nextBreakpoint(_ comp: CircuitComponent, after t: Double) -> Double? {
+        if comp.kind == .vcoSquare { return vcoBreakpoint(comp, after: t, corners: vcoSquareCorners(comp)) }
         if comp.kind == .pwlCurrentSource { return pwlBreakpoint(comp, after: t) }
         if comp.kind == .exponentialCurrentSource { return exponentialBreakpoint(comp, after: t) }
         if comp.kind == .pwlVoltage { return pwlBreakpoint(comp, after: t) }

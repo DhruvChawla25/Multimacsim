@@ -35,3 +35,16 @@ final class VCOTests: XCTestCase {
         }
     }
 }
+
+final class VCOSquareTests: XCTestCase {
+    func testSquareFrequencyAndExactEdges() {
+        let t = VCOTests()
+        let (_, _, v) = t.run(.vcoSquare, control: 1, dt: 1e-5, steps: 1000) // 1.5 kHz
+        XCTAssertEqual(VCOTests.risingCrossings(v), 15, accuracy: 1)
+        XCTAssertEqual(v.max()!, 2, accuracy: 1e-9)
+        XCTAssertEqual(v.min()!, -2, accuracy: 1e-9)
+        // Edges at multiples of 1/3 ms do not fall on the 10 µs grid, yet the duty stays 50 %.
+        let high = v.filter { $0 > 0 }.count
+        XCTAssertEqual(Double(high) / Double(v.count), 0.5, accuracy: 0.01)
+    }
+}
