@@ -112,6 +112,8 @@ enum SourceWaveforms {
             return pulse(for: comp)?.value(at: t) ?? 0
         case .bipolarVoltage:
             return pulse(for: comp)?.value(at: t) ?? 0
+        case .whiteNoiseVoltage:
+            return comp.param("offset") + noise(comp, at: t)
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -147,6 +149,9 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .whiteNoiseVoltage:
+            // ngspice transient noise: TRNOISE(rms, sample interval, 0, 0)
+            return "TRNOISE(\(comp.value) \(1 / (2 * frequency(comp, fallback: 1000))) 0 0)"
         case .bipolarVoltage:
             let p = pulse(for: comp)!
             return "PULSE(\(p.v1) \(p.v2) \(p.delay) \(p.rise) \(p.fall) \(p.width) \(p.period))"
@@ -229,8 +234,41 @@ enum SourceWaveforms {
         return "PWL(\(pts.joined(separator: " ")))"
     }
 
+    // MARK: - White noise
+
+    /// Band-limited Gaussian white noise, reproducible from the seed: independent N(0, 1) samples at the
+    /// Nyquist rate 2·BW, joined linearly (scaled by √(3/2) so the joined signal keeps the set RMS).
+    /// It is a pure function of time, so a re-run or a rejected solver step sees the same noise.
+    static func noise(_ comp: CircuitComponent, at t: Double) -> Double {
+        let rate = 2 * frequency(comp, fallback: 1000)
+        let seed = UInt64(max(comp.param("seed"), 0).rounded())
+        let x = max(t, 0) * rate
+        let k = floor(x)
+        let frac = x - k
+        let a = gaussian(seed: seed, index: Int64(k)), b = gaussian(seed: seed, index: Int64(k) + 1)
+        return comp.value * 1.5.squareRoot() * (a + (b - a) * frac)
+    }
+
+    /// SplitMix64: a well-mixed 64-bit hash of (seed, index).
+    static func splitmix(_ v: UInt64) -> UInt64 {
+        var z = v &+ 0x9E37_79B9_7F4A_7C15
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
+    }
+
+    /// Standard normal sample number `index` of the stream `seed` (Box-Muller on two hashed uniforms).
+    static func gaussian(seed: UInt64, index: Int64) -> Double {
+        let h1 = splitmix(seed &* 0x1000_0000_01B3 ^ UInt64(bitPattern: index))
+        let h2 = splitmix(h1)
+        let u1 = (Double(h1 >> 11) + 0.5) / 9_007_199_254_740_992.0
+        let u2 = Double(h2 >> 11) / 9_007_199_254_740_992.0
+        return (-2 * Foundation.log(u1)).squareRoot() * cos(2 * .pi * u2)
+    }
+
     /// Fastest frequency a source contains, for the "too few samples per cycle" warning.
     static func highestFrequency(_ comp: CircuitComponent) -> Double? {
+        if comp.kind == .whiteNoiseVoltage { return frequency(comp, fallback: 1000) }
         if comp.kind == .fmVoltage { return frequency(comp, fallback: 500) + (comp.param("modIndex") + 1) * comp.param("modFreq") }
         if comp.kind == .amVoltage { return frequency(comp, fallback: 500) + comp.param("modFreq") }
         return fundamentalFrequency(comp)
@@ -239,6 +277,8 @@ enum SourceWaveforms {
     /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.
     static func fundamentalFrequency(_ comp: CircuitComponent) -> Double? {
         switch comp.kind {
+        case .whiteNoiseVoltage:
+            return frequency(comp, fallback: 1000) / 100
         case .bipolarVoltage:
             return frequency(comp, fallback: 1000)
         case .pulseVoltage:

@@ -86,6 +86,11 @@ extension ComponentKind {
                 ExtraParameter("duty", .linear("Positive Duty Cycle:", "%", 1...99), default: 50),
                 ExtraParameter("edge", .log("Rise / Fall Time:", "s", 1e-12...1, slider: 1e-9...1e-3), default: 1e-9),
             ]
+        case .whiteNoiseVoltage:
+            return [
+                ExtraParameter("seed", .linear("Random Seed:", "", 0...1_000_000, slider: 0...100), default: 1),
+                ExtraParameter("offset", .linear("DC Offset:", "V", -100...100, slider: -10...10), default: 0),
+            ]
         default:
             return []
         }

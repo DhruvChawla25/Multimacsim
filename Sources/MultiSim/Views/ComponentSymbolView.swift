@@ -178,6 +178,8 @@ public struct ComponentSymbolView: View {
             SignalSourceSymbol(glyph: .pulse).stroke(symbolColor, lineWidth: lineWidth)
         case .bipolarVoltage:
             SignalSourceSymbol(glyph: .bipolar).stroke(symbolColor, lineWidth: lineWidth)
+        case .whiteNoiseVoltage:
+            SignalSourceSymbol(glyph: .noise).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:

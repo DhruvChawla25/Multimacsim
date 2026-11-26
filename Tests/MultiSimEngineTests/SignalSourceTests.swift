@@ -122,4 +122,24 @@ final class SignalSourceTests: XCTestCase {
         XCTAssertEqual(v.max()!, 3, accuracy: 1e-9)
         XCTAssertEqual(v.min()!, -3, accuracy: 1e-9)
     }
+
+    func testWhiteNoiseIsSeededAndHasTheSetRMS() {
+        let n = make(.whiteNoiseVoltage, value: 2, secondary: 1000, ["seed": 7])
+        var sum = 0.0, sq = 0.0
+        let count = 200_000
+        for k in 0..<count {
+            let v = SourceWaveforms.value(n, at: Double(k) * 1.3e-5)
+            sum += v; sq += v * v
+        }
+        XCTAssertEqual(sum / Double(count), 0, accuracy: 0.05)
+        XCTAssertEqual((sq / Double(count)).squareRoot(), 2, accuracy: 0.1)
+        // Same seed, same noise; another seed, another stream.
+        let again = make(.whiteNoiseVoltage, value: 2, secondary: 1000, ["seed": 7])
+        let other = make(.whiteNoiseVoltage, value: 2, secondary: 1000, ["seed": 8])
+        XCTAssertEqual(SourceWaveforms.value(n, at: 0.0123), SourceWaveforms.value(again, at: 0.0123))
+        XCTAssertNotEqual(SourceWaveforms.value(n, at: 0.0123), SourceWaveforms.value(other, at: 0.0123))
+        // Band limit: a new independent value only every 1/(2·BW) = 0.5 ms; in between it moves linearly.
+        let a = SourceWaveforms.value(n, at: 1.0e-3), b = SourceWaveforms.value(n, at: 1.25e-3), c = SourceWaveforms.value(n, at: 1.5e-3)
+        XCTAssertEqual(b, (a + c) / 2, accuracy: 1e-12)
+    }
 }

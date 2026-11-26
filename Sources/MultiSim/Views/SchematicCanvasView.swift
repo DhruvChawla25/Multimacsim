@@ -684,6 +684,8 @@ public struct SchematicCanvasView: View {
             return "PULSE \(EngineeringFormatter.voltage(comp.param("v1"))) → \(EngineeringFormatter.voltage(comp.value))\nPW \(EngineeringFormatter.units(comp.param("width"), "s")) / \(EngineeringFormatter.units(comp.param("period"), "s"))"
         case .bipolarVoltage:
             return "±\(EngineeringFormatter.voltage(comp.value)) @ \(EngineeringFormatter.units(comp.secondaryValue, "Hz"))"
+        case .whiteNoiseVoltage:
+            return "Noise \(EngineeringFormatter.voltage(comp.value)) RMS\nBW \(EngineeringFormatter.units(comp.secondaryValue, "Hz"))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:
