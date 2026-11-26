@@ -84,6 +84,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case gainBlock = "Voltage Gain Block"
     case multiplierBlock = "Voltage Multiplier"
     case dividerBlock = "Voltage Divider Block"
+    case summerBlock = "Voltage Summer"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -165,6 +166,8 @@ extension ComponentKind {
             return .controlFunctionBlocks
         case .dividerBlock:
             return .controlFunctionBlocks
+        case .summerBlock:
+            return .controlFunctionBlocks
         case .probe:
             return .probes
         }
@@ -235,6 +238,7 @@ extension ComponentKind {
         case .gainBlock: return "A"
         case .multiplierBlock: return "A"
         case .dividerBlock: return "A"
+        case .summerBlock: return "A"
         case .probe: return "P"
         }
     }
@@ -312,6 +316,7 @@ extension ComponentKind {
         case .gainBlock: return "Gain Block (K)"
         case .multiplierBlock: return "Multiplier (X·Y)"
         case .dividerBlock: return "Divider (X / Y)"
+        case .summerBlock: return "Summer (A + B + C)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -386,6 +391,7 @@ extension ComponentKind {
         case .gainBlock: return "multiply.circle"
         case .multiplierBlock: return "xmark.circle"
         case .dividerBlock: return "divide.circle"
+        case .summerBlock: return "sum"
         case .probe: return "pin"
         }
     }
@@ -586,6 +592,7 @@ extension ComponentKind {
         case .gainBlock: return PartDefaults(value: 2)
         case .multiplierBlock: return PartDefaults(value: 1)
         case .dividerBlock: return PartDefaults(value: 1)
+        case .summerBlock: return PartDefaults(value: 1)
         default: return PartDefaults()
         }
     }
@@ -637,6 +644,7 @@ extension ComponentKind {
         case .gainBlock: return "Gain K:"
         case .multiplierBlock: return "Output Gain K:"
         case .dividerBlock: return "Output Gain K:"
+        case .summerBlock: return "Output Gain K:"
         default: return "Value:"
         }
     }

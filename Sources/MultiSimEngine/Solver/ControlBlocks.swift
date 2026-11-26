@@ -8,6 +8,8 @@ public enum ControlBlocks {
     public static func inputNames(_ kind: ComponentKind) -> [String] {
         switch kind {
         // <inputs>
+        case .summerBlock:
+            return ["A", "B", "C"]
         case .dividerBlock:
             return ["X", "Y"]
         case .multiplierBlock:
@@ -32,6 +34,8 @@ public enum ControlBlocks {
     public static func label(_ kind: ComponentKind) -> String {
         switch kind {
         // <labels>
+        case .summerBlock:
+            return "Σ"
         case .dividerBlock:
             return "÷"
         case .multiplierBlock:
@@ -54,6 +58,12 @@ public enum ControlBlocks {
         let zero = [Double](repeating: 0, count: u.count)
         switch comp.kind {
         // <eval>
+        case .summerBlock:
+            // V(out) = K·(ka·A + kb·B + kc·C) + output offset
+            let k = comp.value
+            let g = [comp.param("aGain"), comp.param("bGain"), comp.param("cGain")]
+            let sum = zip(g, u).reduce(0) { $0 + $1.0 * $1.1 }
+            return Linearized(value: k * sum + comp.param("outOffset"), partials: g.prefix(u.count).map { k * $0 })
         case .dividerBlock:
             // V(out) = K·[xg·(X + xo)] / [yg·(Y + yo)] + output offset, |denominator| held at or above the lower limit.
             let k = comp.value, xg = comp.param("xGain"), yg = comp.param("yGain")
@@ -93,6 +103,9 @@ public enum ControlBlocks {
     static func acGains(_ comp: CircuitComponent, omega: Double, op: [Double]?) -> [Complex]? {
         switch comp.kind {
         // <ac>
+        case .summerBlock:
+            let k = comp.value
+            return [comp.param("aGain"), comp.param("bGain"), comp.param("cGain")].map { Complex(k * $0) }
         case .gainBlock:
             return [Complex(comp.value)]
         default:
@@ -107,6 +120,8 @@ public enum ControlBlocks {
         let out = nodes.last ?? "0"
         switch comp.kind {
         // <spice>
+        case .summerBlock:
+            return "B\(name) \(out) 0 V={\(comp.value)*(\(comp.param("aGain"))*\(ins[0])+\(comp.param("bGain"))*\(ins[1])+\(comp.param("cGain"))*\(ins[2]))+\(comp.param("outOffset"))}"
         case .dividerBlock:
             return "B\(name) \(out) 0 V={\(comp.value)*(\(comp.param("xGain"))*(\(ins[0])+\(comp.param("xOffset"))))/(\(comp.param("yGain"))*(\(ins[1])+\(comp.param("yOffset"))))+\(comp.param("outOffset"))}"
         case .multiplierBlock:

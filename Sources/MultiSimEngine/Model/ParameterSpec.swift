@@ -119,6 +119,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "", range: -1e9...1e9, sliderRange: -100...100, isLogarithmic: false, usesESeries: false)
             case .dividerBlock:
                 return ParameterSpec(label: label, unit: "", range: -1e9...1e9, sliderRange: -100...100, isLogarithmic: false, usesESeries: false)
+            case .summerBlock:
+                return ParameterSpec(label: label, unit: "", range: -1e9...1e9, sliderRange: -100...100, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }

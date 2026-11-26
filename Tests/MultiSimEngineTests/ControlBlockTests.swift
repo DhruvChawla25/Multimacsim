@@ -58,4 +58,13 @@ final class ControlBlockTests: XCTestCase {
         src[1].value = -0.5
         XCTAssertEqual(output(bench, b, solver.step()), -12, accuracy: 1e-9)
     }
+
+    func testSummerWeightsItsInputs() throws {
+        let (bench, b, _, _) = block(.summerBlock, value: 2, inputs: [1, 2, 3], params: ["bGain": -1, "outOffset": 0.5])
+        XCTAssertEqual(output(bench, b, bench.solver().step()), 2 * (1 - 2 + 3) + 0.5, accuracy: 1e-9)
+        // Phasor: two AC inputs at the same frequency add as phasors.
+        let (acBench, s, _, _) = block(.summerBlock, value: 1, inputs: [1, 1, 0], source: .acVoltageSource, secondary: 50)
+        let ac = try ACSteadyStateAnalyzer.analyze(acBench.circuit).get()
+        XCTAssertEqual(ac.nodeVoltage(acBench.node(s.pins[3])).magnitude, 2, accuracy: 1e-9)
+    }
 }

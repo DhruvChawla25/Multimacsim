@@ -141,6 +141,13 @@ extension ComponentKind {
                 ExtraParameter("yMin", .log("Denominator Lower Limit:", "V", 1e-15...1e3, slider: 1e-9...1), default: 1e-6),
                 ExtraParameter("outOffset", .linear("Output Offset:", "V", -1000...1000, slider: -10...10), default: 0),
             ]
+        case .summerBlock:
+            return [
+                ExtraParameter("aGain", .linear("Input A Gain:", "", -1e6...1e6, slider: -10...10), default: 1),
+                ExtraParameter("bGain", .linear("Input B Gain:", "", -1e6...1e6, slider: -10...10), default: 1),
+                ExtraParameter("cGain", .linear("Input C Gain:", "", -1e6...1e6, slider: -10...10), default: 1),
+                ExtraParameter("outOffset", .linear("Output Offset:", "V", -1000...1000, slider: -10...10), default: 0),
+            ]
         default:
             return []
         }
