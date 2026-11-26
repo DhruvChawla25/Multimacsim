@@ -27,6 +27,8 @@ public final class MNASolver {
     /// True until the first step and right after a source discontinuity: that step uses backward Euler.
     public private(set) var needsBackwardEulerStep = true
     private var shortenNextStep = false
+    /// Homotopy used by the most recent hard solve (shown by the diagnostics sheet).
+    public private(set) var lastConvergenceAid: ConvergenceAid = .none
     /// Newton convergence criteria (SPICE defaults).
     public var tolerances = SolverTolerances()
     /// First auxiliary (branch-current) unknown of each part that has one.
@@ -37,8 +39,8 @@ public final class MNASolver {
     public private(set) var solution: [Double] = []
 
     // Thermal voltage at 300K: kT/q
-    private static let Vt = 0.02585
-    private static let diodeIs = 1e-14
+    static let Vt = 0.02585
+    static let diodeIs = 1e-14
 
     // Instrument / switch modelling constants
     static let idealAmmeterResistance = 1e-3
@@ -132,6 +134,9 @@ public final class MNASolver {
         )
     }
 
+    /// How many times a sub-step may be halved when Newton fails before falling back to gmin stepping.
+    static let maxStepCuts = 5
+
     /// Length of the backward-Euler step taken right after a breakpoint, as a fraction of the step.
     static let postBreakpointFraction = 0.05
 
@@ -143,13 +148,27 @@ public final class MNASolver {
     }
 
     /// Solves the circuit at `target` and accepts it as the new state.
-    private func advance(to target: Double) -> SubstepOutcome {
+    private func advance(to target: Double, depth: Int = 0) -> SubstepOutcome {
         let hs = target - currentTime
         let size = totalNodes + auxCount
         // Warm start from the last accepted point: Newton then only has to follow the change over one step.
         let x0 = solution.count == size ? solution : [Double](repeating: 0, count: size)
         let mode: StampMode = (integrationMethod == .backwardEuler || needsBackwardEulerStep) ? .backwardEuler : .trapezoidal
-        let outcome = newtonSolve(time: target, h: hs, mode: mode, initial: x0)
+        var outcome = newtonSolve(time: target, h: hs, mode: mode, initial: x0)
+        if !outcome.converged && !outcome.singular {
+            // Time-step cut: two half steps usually converge where one full step did not.
+            if depth < Self.maxStepCuts {
+                let mid = currentTime + hs / 2
+                let first = advance(to: mid, depth: depth + 1)
+                if first.singular { return first }
+                let second = advance(to: target, depth: depth + 1)
+                return SubstepOutcome(voltages: second.voltages, converged: first.converged && second.converged,
+                                      singular: second.singular, iterations: first.iterations + second.iterations + outcome.iterations)
+            }
+            let (rescued, aid) = robustSolve(time: target, h: hs, mode: mode, initial: x0)
+            lastConvergenceAid = aid
+            outcome = rescued
+        }
 
         isSolutionValid = !outcome.singular
         if !outcome.singular {
@@ -185,27 +204,115 @@ public final class MNASolver {
     }
 
     /// Solves the (possibly non-linear) circuit equations at one time point.
-    func newtonSolve(time t: Double, h: Double, mode: StampMode, initial x0: [Double]) -> NewtonOutcome {
+    /// `gmin` adds a conductance from every node to ground; `sourceScale` scales every independent source.
+    func newtonSolve(time t: Double, h: Double, mode: StampMode, initial x0: [Double],
+                     gmin: Double = 0, sourceScale: Double = 1) -> NewtonOutcome {
         var x = x0
         let nonlinear = circuit.components.contains { Self.isNonlinear($0.kind) }
+        let memory = IterationMemory()
         var iterations = 0
         while iterations < tolerances.maxIterations {
             iterations += 1
+            memory.limited = false
             var sys = MNASystem(nodeCount: totalNodes, auxCount: auxCount)
-            let ctx = StampContext(x: x, nodeCount: totalNodes, time: t, h: h, mode: mode)
+            let ctx = StampContext(x: x, nodeCount: totalNodes, time: t, h: h, mode: mode,
+                                   sourceScale: sourceScale, memory: memory)
             for comp in circuit.components {
                 stamp(comp, nodes: nodeIndices(for: comp), into: &sys, ctx: ctx)
             }
+            sys.shuntAllNodes(gmin)
             guard let xNew = sys.A.solve(b: sys.b) else {
                 return NewtonOutcome(x: x, converged: false, singular: true, iterations: iterations)
             }
-            let done = !nonlinear || hasConverged(old: x, new: xNew)
+            // Converged only when nothing moved and no junction step had to be limited (SPICE "noncon").
+            let done = !nonlinear || (iterations > 1 && !memory.limited && hasConverged(old: x, new: xNew))
             x = xNew
             if done {
                 return NewtonOutcome(x: x, converged: true, singular: false, iterations: iterations)
             }
         }
         return NewtonOutcome(x: x, converged: false, singular: false, iterations: iterations)
+    }
+
+    /// Newton with the two SPICE homotopies as fallbacks: gmin stepping, then source stepping.
+    func robustSolve(time t: Double, h: Double, mode: StampMode, initial x0: [Double]) -> (NewtonOutcome, ConvergenceAid) {
+        let direct = newtonSolve(time: t, h: h, mode: mode, initial: x0)
+        if direct.converged || direct.singular { return (direct, .none) }
+
+        // gmin stepping: start with every node shunted by 10 mS and relax the shunt a decade at a time.
+        var x = x0
+        var total = direct.iterations
+        var ok = true
+        var g = 1e-2
+        while g >= 1e-13 {
+            let r = newtonSolve(time: t, h: h, mode: mode, initial: x, gmin: g)
+            total += r.iterations
+            if !r.converged { ok = false; break }
+            x = r.x
+            g /= 10
+        }
+        if ok {
+            var r = newtonSolve(time: t, h: h, mode: mode, initial: x)
+            r.iterations += total
+            if r.converged { return (r, .gminStepping) }
+        }
+
+        // Source stepping: ramp every independent source up from zero, halving the step on failure.
+        x = [Double](repeating: 0, count: x0.count)
+        var scale = 0.0
+        var stepSize = 0.1
+        while scale < 1 {
+            let next = min(1, scale + stepSize)
+            let r = newtonSolve(time: t, h: h, mode: mode, initial: x, sourceScale: next)
+            total += r.iterations
+            if r.converged {
+                x = r.x
+                scale = next
+                stepSize = min(stepSize * 2, 0.25)
+            } else {
+                stepSize /= 2
+                if stepSize < 1e-4 { break }
+            }
+        }
+        if scale >= 1 {
+            return (NewtonOutcome(x: x, converged: true, singular: false, iterations: total), .sourceStepping)
+        }
+        var fail = direct
+        fail.iterations = total
+        return (fail, .none)
+    }
+
+    /// Which homotopy, if any, the last operating point needed.
+    public enum ConvergenceAid: String, Sendable {
+        case none = "Direct Newton"
+        case gminStepping = "gmin stepping"
+        case sourceStepping = "Source stepping"
+    }
+
+    /// DC operating point (.OP): capacitors open, inductors shorted, sources at their present value.
+    ///
+    /// Tries plain Newton first, then gmin stepping, then source stepping. With `apply` the result
+    /// becomes the initial condition for the transient (capacitor voltages, inductor currents).
+    @discardableResult
+    public func operatingPoint(apply: Bool = false) -> (result: SimulationStepResult, aid: ConvergenceAid) {
+        layoutAuxiliaryUnknowns()
+        guard totalNodes > 0 else {
+            return (SimulationStepResult(time: currentTime, nodeVoltages: [0: 0], converged: true, iterations: 0, isSingular: false), .none)
+        }
+        let size = totalNodes + auxCount
+        let x0 = solution.count == size ? solution : [Double](repeating: 0, count: size)
+        let (outcome, aid) = robustSolve(time: currentTime, h: timeStep, mode: .dc, initial: x0)
+        lastConvergenceAid = aid
+        let voltages = nodeVoltageMap(outcome.x)
+        if apply && outcome.converged {
+            solution = outcome.x
+            isSolutionValid = true
+            updateComponentRuntimeStates(voltages: voltages, x: outcome.x, dt: timeStep, mode: .dc)
+            needsBackwardEulerStep = true
+        }
+        let result = SimulationStepResult(time: currentTime, nodeVoltages: voltages, converged: outcome.converged,
+                                          iterations: outcome.iterations, isSingular: outcome.singular)
+        return (result, aid)
     }
 
     /// SPICE convergence test: every node voltage within reltol·|v| + vntol, every branch current within reltol·|i| + abstol.
@@ -335,25 +442,13 @@ public final class MNASolver {
 
         case .dcCurrentSource:
             // Current leaves the OUT terminal (pin 0), the way the symbol's arrow points.
-            sys.current(from: node(1), to: node(0), comp.value)
+            sys.current(from: node(1), to: node(0), ctx.sourceScale * comp.value)
 
         case .diode, .led, .schottkyDiode:
             stampJunction(comp, anode: node(0), cathode: node(1), into: &sys, ctx: ctx)
 
         case .zenerDiode:
-            let nA = node(0), nK = node(1)
-            let vd = ctx.v(nA) - ctx.v(nK)
-            let vz = comp.secondaryValue > 0 ? comp.secondaryValue : 5.1
-            if vd < -vz {
-                // Reverse breakdown: modelled as a 10 ohm impedance clamped at Vz.
-                let gz = 1.0 / 10.0
-                sys.conductance(nA, nK, gz)
-                sys.current(from: nA, to: nK, -gz * (-vd - vz))
-            } else if vd > 0.6 {
-                sys.conductance(nA, nK, 1.0 / 0.1)
-            } else {
-                sys.conductance(nA, nK, 1e-12)
-            }
+            stampZener(comp, anode: node(0), cathode: node(1), into: &sys, ctx: ctx)
 
         case .bjtNPN, .bjtPNP:
             stampBJT(comp, nodes: [node(0), node(1), node(2)], into: &sys, ctx: ctx, pnp: comp.kind == .bjtPNP)
@@ -387,7 +482,7 @@ public final class MNASolver {
             }
 
         case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator:
-            sys.voltageSource(k, plus: node(0), minus: node(1), value: SourceWaveforms.value(comp, at: ctx.time))
+            sys.voltageSource(k, plus: node(0), minus: node(1), value: ctx.sourceScale * SourceWaveforms.value(comp, at: ctx.time))
 
         case .vcvs:
             // V(out+) - V(out-) = gain * (V(ctrl+) - V(ctrl-))
@@ -396,12 +491,18 @@ public final class MNASolver {
             sys.branchDependsOnNode(k, node: node(3), comp.value)
 
         case .opAmp:
-            // Macro-model: output pin driven as a source against ground with finite open-loop gain and rails.
-            let vPlus = ctx.v(node(1))
-            let vMinus = ctx.v(node(0))
+            // Macro-model: output driven against ground with open-loop gain A = 1e5, clipped at the rails.
+            // In the linear region the gain is stamped as a VCVS so Newton sees the true slope.
+            let gain = 1e5
             let rail = comp.secondaryValue > 0 ? comp.secondaryValue : 15.0
-            let target = min(max((vPlus - vMinus) * 1e5, -rail), rail)
-            sys.voltageSource(k, plus: node(2), minus: 0, value: target)
+            let open = gain * (ctx.v(node(1)) - ctx.v(node(0)))
+            if abs(open) < rail {
+                sys.branch(k, plus: node(2), minus: 0)
+                sys.branchDependsOnNode(k, node: node(1), -gain)
+                sys.branchDependsOnNode(k, node: node(0), gain)
+            } else {
+                sys.voltageSource(k, plus: node(2), minus: 0, value: open > 0 ? rail : -rail)
+            }
 
         case .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer:
             sys.voltageSource(k, plus: n.last ?? 0, minus: 0, value: evaluateLogicGate(comp: comp, nodes: n, ctx: ctx))
@@ -413,21 +514,62 @@ public final class MNASolver {
 
     // MARK: - Device models
 
-    private struct JunctionModel {
+    struct JunctionModel {
         let saturation: Double
         let emissionCoefficient: Double
-        let maxForwardVoltage: Double
+        var vt: Double { MNASolver.Vt * emissionCoefficient }
+        /// Voltage above which SPICE starts limiting Newton steps: vt·ln(vt / (√2·Is)).
+        var vcrit: Double { vt * log(vt / (2.0.squareRoot() * saturation)) }
+
+        /// Current and conductance at `vd`, with the exponent capped so a wild iterate cannot overflow.
+        func evaluate(_ vd: Double) -> (i: Double, g: Double) {
+            let arg = vd / vt
+            if arg > 80 {
+                // Continue linearly past e^80 so the iterate is still pulled back.
+                let e = exp(80.0)
+                return (saturation * (e * (1 + arg - 80) - 1), saturation / vt * e)
+            }
+            let e = exp(arg)
+            return (saturation * (e - 1), saturation / vt * e)
+        }
     }
 
-    private static func junctionModel(for comp: CircuitComponent) -> JunctionModel {
+    static func junctionModel(for comp: CircuitComponent) -> JunctionModel {
         switch comp.kind {
         case .led:
-            return JunctionModel(saturation: 1e-18, emissionCoefficient: 2.0, maxForwardVoltage: comp.ledColor.forwardVoltage + 0.3)
+            // Is chosen so the knee sits at the colour's forward voltage (about 10 mA there).
+            let vf = comp.ledColor.forwardVoltage
+            return JunctionModel(saturation: 0.01 / exp(vf / (Vt * 2.0)), emissionCoefficient: 2.0)
         case .schottkyDiode:
-            return JunctionModel(saturation: 1e-12, emissionCoefficient: 1.0, maxForwardVoltage: 0.45)
+            return JunctionModel(saturation: 1e-8, emissionCoefficient: 1.0)
         default:
-            return JunctionModel(saturation: diodeIs, emissionCoefficient: 1.0, maxForwardVoltage: 0.82)
+            return JunctionModel(saturation: diodeIs, emissionCoefficient: 1.0)
         }
+    }
+
+    /// Minimum conductance SPICE puts across every junction so a reverse-biased one never floats.
+    static let junctionGmin = 1e-12
+
+    /// SPICE pnjlim: keeps a Newton step on an exponential junction from overshooting.
+    static func limitJunctionVoltage(_ vnew: Double, old vold: Double, vt: Double, vcrit: Double) -> (Double, Bool) {
+        guard vnew > vcrit, abs(vnew - vold) > 2 * vt else { return (vnew, false) }
+        if vold > 0 {
+            let arg = 1 + (vnew - vold) / vt
+            return (arg > 0 ? vold + vt * log(arg) : vcrit, true)
+        }
+        return (vt * log(vnew / vt), true)
+    }
+
+    /// Junction voltage for this iteration after limiting against the last one.
+    private func limitedJunction(_ comp: CircuitComponent, slot: Int, raw: Double, model: JunctionModel, ctx: StampContext) -> Double {
+        var v = raw
+        if let old = ctx.memory.junction(comp.id, slot) {
+            let (lim, didLimit) = Self.limitJunctionVoltage(raw, old: old, vt: model.vt, vcrit: model.vcrit)
+            if didLimit { ctx.memory.limited = true }
+            v = lim
+        }
+        ctx.memory.setJunction(comp.id, slot, v)
+        return v
     }
 
     /// Newton-Raphson linearisation of a PN junction (diode / LED / Schottky).
@@ -439,26 +581,49 @@ public final class MNASolver {
         ctx: StampContext
     ) {
         let model = Self.junctionModel(for: comp)
-        let vt = Self.Vt * model.emissionCoefficient
-
-        var vd = ctx.v(nA) - ctx.v(nK)
-
-        // Seed the first iterate near the conduction knee so the exponential does not start at zero.
-        if comp.runtimePrevVoltage >= 0.1 {
-            vd = comp.runtimePrevVoltage
-        } else if vd < 0.1 {
-            vd = (model.maxForwardVoltage - 0.3) * 0.85
-        }
-        vd = min(max(vd, -5.0), model.maxForwardVoltage)
-
-        let expTerm = exp(vd / vt)
-        let id = model.saturation * (expTerm - 1.0)
-        let gd = max((model.saturation / vt) * expTerm, 1e-12)
-
-        sys.conductance(nA, nK, gd)
-        sys.current(from: nA, to: nK, id - gd * vd)
+        let vd = limitedJunction(comp, slot: 0, raw: ctx.v(nA) - ctx.v(nK), model: model, ctx: ctx)
+        let (id, gd) = model.evaluate(vd)
+        let g = gd + Self.junctionGmin
+        sys.conductance(nA, nK, g)
+        sys.current(from: nA, to: nK, id + Self.junctionGmin * vd - g * vd)
     }
 
+    /// Zener: forward PN junction plus an exponential reverse breakdown of 1 mA at Vz.
+    static let zenerBreakdownCurrent = 1e-3
+
+    static func zenerCurrent(_ vd: Double, vz: Double) -> (i: Double, g: Double) {
+        let fwd = junctionModel(for: CircuitComponent(kind: .diode, designator: "")).evaluate(vd)
+        let arg = min(-(vd + vz) / Vt, 80)
+        let e = exp(arg)
+        let iRev = zenerBreakdownCurrent * e
+        return (fwd.i - iRev + junctionGmin * vd, fwd.g + zenerBreakdownCurrent / Vt * e + junctionGmin)
+    }
+
+    private func stampZener(_ comp: CircuitComponent, anode nA: Int, cathode nK: Int, into sys: inout MNASystem, ctx: StampContext) {
+        let vz = comp.secondaryValue > 0 ? comp.secondaryValue : 5.1
+        let raw = ctx.v(nA) - ctx.v(nK)
+        var vd = raw
+        if let old = ctx.memory.junction(comp.id, 0) {
+            if raw < min(0, -vz + 10 * Self.Vt) {
+                // Limit the breakdown junction the same way, measured from -Vz (SPICE does this too).
+                let vcritRev = Self.Vt * log(Self.Vt / (2.0.squareRoot() * Self.zenerBreakdownCurrent))
+                let (lim, did) = Self.limitJunctionVoltage(-(raw + vz), old: -(old + vz), vt: Self.Vt, vcrit: vcritRev)
+                vd = -(lim + vz)
+                if did { ctx.memory.limited = true }
+            } else {
+                let model = Self.junctionModel(for: CircuitComponent(kind: .diode, designator: ""))
+                let (lim, did) = Self.limitJunctionVoltage(raw, old: old, vt: model.vt, vcrit: model.vcrit)
+                vd = lim
+                if did { ctx.memory.limited = true }
+            }
+        }
+        ctx.memory.setJunction(comp.id, 0, vd)
+        let (i, g) = Self.zenerCurrent(vd, vz: vz)
+        sys.conductance(nA, nK, g)
+        sys.current(from: nA, to: nK, i - g * vd)
+    }
+
+    /// Transistor: base-emitter junction plus a collector current β·I_B, linearised for Newton.
     private func stampBJT(
         _ comp: CircuitComponent,
         nodes n: [Int],
@@ -469,24 +634,18 @@ public final class MNASolver {
         guard n.count >= 3 else { return }
         let nB = n[0], nC = n[1], nE = n[2]
         let beta = comp.secondaryValue > 0 ? comp.secondaryValue : 100.0
-        let vB = ctx.v(nB)
-        let vE = ctx.v(nE)
-
-        if pnp {
-            let vEB = min(max(vE - vB, -5.0), 0.8)
-            let ib = 1e-14 * (exp(vEB / Self.Vt) - 1.0)
-            let geb = max((1e-14 / Self.Vt) * exp(vEB / Self.Vt), 1e-12)
-            sys.conductance(nE, nB, geb)
-            sys.current(from: nE, to: nB, ib - geb * vEB)
-            sys.current(from: nE, to: nC, max(beta * ib, 0.0))
-        } else {
-            let vBE = min(max(vB - vE, -5.0), 0.8)
-            let ib = 1e-14 * (exp(vBE / Self.Vt) - 1.0)
-            let gbe = max((1e-14 / Self.Vt) * exp(vBE / Self.Vt), 1e-12)
-            sys.conductance(nB, nE, gbe)
-            sys.current(from: nB, to: nE, ib - gbe * vBE)
-            sys.current(from: nC, to: nE, max(beta * ib, 0.0))
-        }
+        let model = JunctionModel(saturation: 1e-14, emissionCoefficient: 1.0)
+        // Work with the forward junction voltage: V_BE for NPN, V_EB for PNP.
+        let (jp, jn) = pnp ? (nE, nB) : (nB, nE)
+        let vj = limitedJunction(comp, slot: 0, raw: ctx.v(jp) - ctx.v(jn), model: model, ctx: ctx)
+        let (ib, gj) = model.evaluate(vj)
+        let g = gj + Self.junctionGmin
+        sys.conductance(jp, jn, g)
+        sys.current(from: jp, to: jn, ib + Self.junctionGmin * vj - g * vj)
+        // I_C = β·I_B(v_j) ≈ β·(I_B0 + g_j·(v_j − v_j0)), flowing C -> E (NPN) or E -> C (PNP).
+        let (from, to) = pnp ? (nE, nC) : (nC, nE)
+        sys.current(from: from, to: to, beta * (ib - gj * vj))
+        sys.transconductance(from: from, to: to, cp: jp, cm: jn, beta * gj)
     }
 
     // MARK: - Parameter resolution
@@ -638,19 +797,12 @@ public final class MNASolver {
                 comp.runtimePrevVoltage = vDrop
 
             case .diode, .led, .schottkyDiode:
-                let model = Self.junctionModel(for: comp)
-                let vt = Self.Vt * model.emissionCoefficient
-                let clampedVd = min(max(vDrop, -10.0), 1.5)
-                comp.runtimeCurrent = model.saturation * (exp(clampedVd / vt) - 1.0)
+                comp.runtimeCurrent = Self.junctionModel(for: comp).evaluate(vDrop).i
                 comp.runtimePrevVoltage = vDrop
 
             case .zenerDiode:
                 let vz = comp.secondaryValue > 0 ? comp.secondaryValue : 5.1
-                if vDrop < -vz {
-                    comp.runtimeCurrent = -(-vDrop - vz) / 10.0
-                } else {
-                    comp.runtimeCurrent = vDrop > 0.6 ? vDrop / 0.1 : 0.0
-                }
+                comp.runtimeCurrent = Self.zenerCurrent(vDrop, vz: vz).i
                 comp.runtimePrevVoltage = vDrop
 
             case .ohmmeter:

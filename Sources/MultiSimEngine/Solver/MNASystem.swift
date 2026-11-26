@@ -128,6 +128,26 @@ struct MNASystem {
     }
 }
 
+/// Per-solve scratch memory that survives from one Newton iteration to the next.
+final class IterationMemory {
+    /// Limited junction voltages from the previous iteration, per part and junction slot.
+    private var junctions: [UUID: [Double]] = [:]
+    /// Set when any junction step was limited this iteration; the solve cannot be converged then.
+    var limited = false
+
+    func junction(_ id: UUID, _ slot: Int) -> Double? {
+        guard let v = junctions[id], slot < v.count, v[slot].isFinite else { return nil }
+        return v[slot]
+    }
+
+    func setJunction(_ id: UUID, _ slot: Int, _ value: Double) {
+        var v = junctions[id] ?? []
+        while v.count <= slot { v.append(.nan) }
+        v[slot] = value
+        junctions[id] = v
+    }
+}
+
 /// Everything a device needs to stamp itself for one Newton iteration.
 struct StampContext {
     /// Current Newton iterate.
@@ -138,6 +158,9 @@ struct StampContext {
     /// Step size from the last accepted point.
     let h: Double
     let mode: StampMode
+    /// Source-stepping factor applied to every independent source (1 in normal operation).
+    let sourceScale: Double
+    let memory: IterationMemory
 
     @inline(__always) func v(_ node: Int) -> Double { node > 0 && node - 1 < x.count ? x[node - 1] : 0 }
     @inline(__always) func aux(_ k: Int) -> Double { nodeCount + k < x.count ? x[nodeCount + k] : 0 }
