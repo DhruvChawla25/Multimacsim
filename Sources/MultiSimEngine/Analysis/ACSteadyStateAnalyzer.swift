@@ -314,6 +314,13 @@ public enum ACSteadyStateAnalyzer {
                 // Pushed out of OUT+, as in the transient solver.
                 sys.transadmittance(from: node(1), to: node(0), cp: node(2), cm: node(3), Complex(comp.value))
                 transconductances[comp.id] = (Complex(-comp.value), node(2), node(3))
+            case .ccvs:
+                sys.voltageSource(k, plus: node(2), minus: node(3), .zero)
+                sys.branch(k + 1, plus: node(0), minus: node(1))
+                sys.branchAux(k + 1, aux: k, Complex(-comp.value))
+            case .cccs:
+                sys.voltageSource(k, plus: node(2), minus: node(3), .zero)
+                sys.auxControlledCurrent(from: node(1), to: node(0), aux: k, Complex(comp.value))
             case .opAmp:
                 // Linear region of the macro-model: an open-loop gain of 1e5.
                 sys.branch(k, plus: node(2), minus: 0)
@@ -384,6 +391,10 @@ public enum ACSteadyStateAnalyzer {
                 // As a single part: phase A voltage and line A current.
                 voltage = phaseV[0]
                 current = lines[0]
+            } else if comp.kind == .ccvs {
+                current = -auxValue(comp, 1)
+            } else if comp.kind == .cccs {
+                current = Complex(comp.value) * auxValue(comp, 0)
             } else if let w = wattmeters[comp.id], n.count >= 4 {
                 // Voltage = pressure-coil voltage, current = current-coil current,
                 // so `averagePower` is exactly what the wattmeter reads.
@@ -449,8 +460,10 @@ public enum ACSteadyStateAnalyzer {
     /// Branch-current unknowns a part needs in the phasor system.
     static func auxRows(_ comp: CircuitComponent, smallSignal: Bool) -> Int {
         switch comp.kind {
-        case .vcvs, .opAmp:
+        case .vcvs, .opAmp, .cccs:
             return 1
+        case .ccvs:
+            return 2
         case _ where comp.kind.isWaveformVoltageSource:
             return 1
         case .threePhaseWye:

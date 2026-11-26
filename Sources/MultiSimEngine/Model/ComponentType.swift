@@ -73,6 +73,9 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case exponentialCurrentSource = "Exponential Current Source"
     case fmCurrentSource = "FM Current Source"
     case pwlCurrentSource = "Piecewise Linear Current Source"
+    // Controlled sources (v6): current-controlled through a sense branch between I+ and I-
+    case ccvs = "CCVS (Current-Controlled Voltage Source)"
+    case cccs = "CCCS (Current-Controlled Current Source)"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -142,6 +145,8 @@ extension ComponentKind {
             return .signalCurrentSources
         case .pwlCurrentSource:
             return .signalCurrentSources
+        case .ccvs, .cccs:
+            return .controlledSources
         case .probe:
             return .probes
         }
@@ -204,6 +209,8 @@ extension ComponentKind {
         case .exponentialCurrentSource: return "I"
         case .fmCurrentSource: return "I"
         case .pwlCurrentSource: return "I"
+        case .ccvs: return "H"
+        case .cccs: return "F"
         case .probe: return "P"
         }
     }
@@ -271,6 +278,8 @@ extension ComponentKind {
         case .exponentialCurrentSource: return "Exponential Current"
         case .fmCurrentSource: return "FM Current"
         case .pwlCurrentSource: return "PWL Current"
+        case .ccvs: return "CCVS (Current Controlled V)"
+        case .cccs: return "CCCS (Current Controlled I)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -335,6 +344,8 @@ extension ComponentKind {
         case .exponentialCurrentSource: return "chart.line.uptrend.xyaxis.circle"
         case .fmCurrentSource: return "dot.radiowaves.right"
         case .pwlCurrentSource: return "chart.xyaxis.line"
+        case .ccvs: return "diamond.lefthalf.filled"
+        case .cccs: return "diamond.righthalf.filled"
         case .probe: return "pin"
         }
     }
@@ -518,6 +529,8 @@ extension ComponentKind {
         case .exponentialCurrentSource: return PartDefaults(value: 0.01)
         case .fmCurrentSource: return PartDefaults(value: 0.01, secondaryValue: 500)
         case .pwlCurrentSource: return PartDefaults()
+        case .ccvs: return PartDefaults(value: 1000)
+        case .cccs: return PartDefaults(value: 10)
         default: return PartDefaults()
         }
     }
@@ -563,6 +576,8 @@ extension ComponentKind {
         case .exponentialCurrentSource: return "Pulsed Value I2 (A):"
         case .fmCurrentSource: return "Amplitude (A peak):"
         case .pwlCurrentSource: return "Value:"
+        case .ccvs: return "Transresistance r (V/A):"
+        case .cccs: return "Current Gain β (A/A):"
         default: return "Value:"
         }
     }

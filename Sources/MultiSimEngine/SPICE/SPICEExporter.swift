@@ -248,6 +248,14 @@ public final class SPICEExporter {
 
             case .digitalGround:
                 break // node 0, like ground
+            case .ccvs, .cccs:
+                // SPICE style: a 0 V sense source carries the controlling current.
+                lines.append("V\(name)_SENSE \(node(2)) \(node(3)) DC 0")
+                if comp.kind == .ccvs {
+                    lines.append("\(name) \(node(0)) \(node(1)) V\(name)_SENSE \(comp.value)")
+                } else {
+                    lines.append("\(name) \(node(1)) \(node(0)) V\(name)_SENSE \(comp.value)")
+                }
             default:
                 // Signal sources describe themselves (SIN, PULSE, PWL, EXP, SFFM ...).
                 if let spec = SourceWaveforms.spiceSpec(comp) {

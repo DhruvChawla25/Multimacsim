@@ -172,7 +172,7 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
     public var bodyHalfSize: Double {
         switch kind {
         case .opAmp, .logicAND, .logicOR, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer,
-             .vcvs, .vccs, .wattmeter, .bjtNPN, .bjtPNP, .threePhaseWye, .threePhaseDelta:
+             .vcvs, .vccs, .ccvs, .cccs, .wattmeter, .bjtNPN, .bjtPNP, .threePhaseWye, .threePhaseDelta:
             return 34
         case .ground, .probe, .digitalGround, .vccRail, .vddRail, .veeRail, .vssRail:
             return 22
@@ -310,6 +310,14 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
 
         case .veeRail, .vssRail, .digitalGround:
             return [Pin(index: 0, name: kind.designatorPrefix, relativeX: 0, relativeY: -20)]
+        case .ccvs, .cccs:
+            // Output on the right; the controlling current flows through the sense branch I+ -> I- on the left.
+            return [
+                Pin(index: 0, name: "OUT+", relativeX: 25, relativeY: -20),
+                Pin(index: 1, name: "OUT-", relativeX: 25, relativeY: 20),
+                Pin(index: 2, name: "I+", relativeX: -25, relativeY: -20),
+                Pin(index: 3, name: "I-", relativeX: -25, relativeY: 20)
+            ]
         case .logicNOT, .logicBuffer:
             // 1 input on left, 1 output on right
             return [

@@ -441,6 +441,10 @@ public final class MNASolver {
             return 2
         case .vccRail, .vddRail, .veeRail, .vssRail:
             return 1
+        case .ccvs:
+            return 2
+        case .cccs:
+            return 1
         case .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer:
             return 1
         default:
@@ -573,6 +577,17 @@ public final class MNASolver {
             }
         case .vccRail, .vddRail, .veeRail, .vssRail:
             sys.voltageSource(k, plus: node(0), minus: 0, value: ctx.sourceScale * comp.value)
+        case .ccvs:
+            // Row k: sense branch V(I+) - V(I-) = 0, its current i_s is the control.
+            // Row k+1: V(OUT+) - V(OUT-) - r·i_s = 0.
+            sys.voltageSource(k, plus: node(2), minus: node(3), value: 0)
+            sys.branch(k + 1, plus: node(0), minus: node(1))
+            sys.branchDependsOnAux(k + 1, aux: k, -comp.value)
+
+        case .cccs:
+            // Sense branch, then β·i_s pushed out of OUT+ (the arrow tip).
+            sys.voltageSource(k, plus: node(2), minus: node(3), value: 0)
+            sys.currentControlledCurrent(from: node(1), to: node(0), auxColumn: k, comp.value)
         case .opAmp:
             // Macro-model: output driven against ground with open-loop gain A = 1e5, clipped at the rails.
             // In the linear region the gain is stamped as a VCVS so Newton sees the true slope.
@@ -905,6 +920,12 @@ public final class MNASolver {
                     comp.runtimeCurrent = -x[totalNodes + k]
                 } else {
                     comp.runtimeCurrent = 0
+                }
+            case .ccvs, .cccs:
+                if let k = auxStart[comp.id], totalNodes + k + (comp.kind == .ccvs ? 1 : 0) < x.count {
+                    let sense = x[totalNodes + k]
+                    comp.runtimeState = [sense]
+                    comp.runtimeCurrent = comp.kind == .ccvs ? -x[totalNodes + k + 1] : comp.value * sense
                 }
             case .ohmmeter:
                 let test = ohmmeterTestCurrent(for: comp)

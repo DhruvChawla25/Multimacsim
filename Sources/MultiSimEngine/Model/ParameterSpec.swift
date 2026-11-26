@@ -105,6 +105,10 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "A", range: 0...100, sliderRange: 0...0.1, isLogarithmic: false, usesESeries: false)
             case .pwlCurrentSource:
                 return nil
+            case .ccvs:
+                return ParameterSpec(label: label, unit: "Ω", range: -1e9...1e9, sliderRange: -1e4...1e4, isLogarithmic: false, usesESeries: false)
+            case .cccs:
+                return ParameterSpec(label: label, unit: "", range: -1e6...1e6, sliderRange: -100...100, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }

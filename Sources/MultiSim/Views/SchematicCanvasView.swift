@@ -696,6 +696,10 @@ public struct SchematicCanvasView: View {
             return "FM \(EngineeringFormatter.current(comp.value)) @ \(EngineeringFormatter.units(comp.secondaryValue, "Hz"))\nβ \(String(format: "%.2g", comp.param("modIndex"))) @ \(EngineeringFormatter.units(comp.param("modFreq"), "Hz"))"
         case .pwlCurrentSource:
             return "PWL \(PWLCache.shared.table(for: comp.textValue)?.points.count ?? 0) pts" + (comp.param("period") > 0 ? "\nrepeat \(EngineeringFormatter.units(comp.param("period"), "s"))" : "")
+        case .ccvs:
+            return "r: \(EngineeringFormatter.resistance(comp.value))"
+        case .cccs:
+            return "β: \(comp.value)"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

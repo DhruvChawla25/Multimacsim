@@ -190,6 +190,10 @@ public struct ComponentSymbolView: View {
             SignalSourceSymbol(glyph: .fm, isCurrent: true).stroke(symbolColor, lineWidth: lineWidth)
         case .pwlCurrentSource:
             SignalSourceSymbol(glyph: .pwl, isCurrent: true).stroke(symbolColor, lineWidth: lineWidth)
+        case .ccvs:
+            DependentSourceSymbol(isVoltageSource: true, currentSense: true).stroke(symbolColor, lineWidth: lineWidth)
+        case .cccs:
+            DependentSourceSymbol(isVoltageSource: false, currentSense: true).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
@@ -583,6 +587,8 @@ public struct LogicGateSymbol: Shape {
 
 public struct DependentSourceSymbol: Shape {
     public let isVoltageSource: Bool
+    /// Current-controlled: the two control leads are joined by the sense branch, marked with an arrow.
+    public var currentSense: Bool = false
 
     public func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -603,10 +609,19 @@ public struct DependentSourceSymbol: Shape {
         path.addLine(to: CGPoint(x: midX, y: 60))
 
         // Control leads (left)
-        path.move(to: CGPoint(x: 0, y: midY - 10))
-        path.addLine(to: CGPoint(x: midX - 18, y: midY - 10))
-        path.move(to: CGPoint(x: 0, y: midY + 10))
-        path.addLine(to: CGPoint(x: midX - 18, y: midY + 10))
+        if currentSense {
+            // Sense branch: I+ straight down to I-, arrow showing the controlling current.
+            path.move(to: CGPoint(x: 6, y: midY - 10))
+            path.addLine(to: CGPoint(x: 6, y: midY + 10))
+            path.move(to: CGPoint(x: 0, y: midY - 10)); path.addLine(to: CGPoint(x: 6, y: midY - 10))
+            path.move(to: CGPoint(x: 0, y: midY + 10)); path.addLine(to: CGPoint(x: 6, y: midY + 10))
+            path.move(to: CGPoint(x: 3, y: midY)); path.addLine(to: CGPoint(x: 6, y: midY + 4)); path.addLine(to: CGPoint(x: 9, y: midY))
+        } else {
+            path.move(to: CGPoint(x: 0, y: midY - 10))
+            path.addLine(to: CGPoint(x: midX - 18, y: midY - 10))
+            path.move(to: CGPoint(x: 0, y: midY + 10))
+            path.addLine(to: CGPoint(x: midX - 18, y: midY + 10))
+        }
 
         if isVoltageSource {
             // Plus (+) sign near top
