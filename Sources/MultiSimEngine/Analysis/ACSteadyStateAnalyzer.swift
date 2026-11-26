@@ -1,7 +1,7 @@
 import Foundation
 
 /// A complex number for phasor arithmetic.
-public struct Complex: Equatable {
+public struct Complex: Equatable, Sendable {
     public var re: Double
     public var im: Double
 
