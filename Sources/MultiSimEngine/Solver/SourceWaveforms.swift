@@ -121,6 +121,8 @@ enum SourceWaveforms {
             return comp.value * sin(2.0 * .pi * frequency(comp, fallback: 1000) * t)
         case .clockCurrentSource:
             return pulse(for: comp)?.value(at: t) ?? 0
+        case .exponentialCurrentSource:
+            return exponential(comp, at: t)
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -156,6 +158,8 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .exponentialCurrentSource:
+            return exponentialSpice(comp)
         case .clockCurrentSource:
             let p = pulse(for: comp)!
             return "PULSE(\(p.v1) \(p.v2) \(p.delay) \(p.rise) \(p.fall) \(p.width) \(p.period))"
@@ -316,6 +320,7 @@ enum SourceWaveforms {
 
     /// Earliest waveform corner of this source strictly after `t`.
     static func nextBreakpoint(_ comp: CircuitComponent, after t: Double) -> Double? {
+        if comp.kind == .exponentialCurrentSource { return exponentialBreakpoint(comp, after: t) }
         if comp.kind == .pwlVoltage { return pwlBreakpoint(comp, after: t) }
         if comp.kind == .exponentialVoltage { return exponentialBreakpoint(comp, after: t) }
         if let p = pulse(for: comp) { return p.nextBreakpoint(after: t) }

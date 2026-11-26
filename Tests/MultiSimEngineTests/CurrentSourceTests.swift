@@ -44,4 +44,10 @@ final class CurrentSourceTests: XCTestCase {
         // ΔV = I·t_on / C = 1 mA · 0.5 ms / 1 µF = 0.5 V
         XCTAssertEqual(bench.voltage(c.pins[0], res), 0.5, accuracy: 0.002)
     }
+
+    func testExponentialCurrentIntoAResistor() {
+        let src = make(.exponentialCurrentSource, value: 0.05, ["v1": 0, "td1": 1e-3, "tau1": 2e-3, "td2": 50e-3, "tau2": 1e-3])
+        let (_, _, v) = drive(src, dt: 0.5e-3, steps: 6) // 3 ms
+        XCTAssertEqual(v.last!, 100 * 0.05 * (1 - exp(-1)), accuracy: 1e-9)
+    }
 }

@@ -690,6 +690,8 @@ public struct SchematicCanvasView: View {
             return "\(EngineeringFormatter.current(comp.value)) pk\n\(EngineeringFormatter.units(comp.secondaryValue > 0 ? comp.secondaryValue : 1000, "Hz"))"
         case .clockCurrentSource:
             return "\(EngineeringFormatter.current(comp.value)) @ \(EngineeringFormatter.units(comp.secondaryValue > 0 ? comp.secondaryValue : 1000, "Hz"))\n\(Int(comp.param("duty"))) % duty"
+        case .exponentialCurrentSource:
+            return "EXP \(EngineeringFormatter.current(comp.param("v1"))) → \(EngineeringFormatter.current(comp.value))\nτ \(EngineeringFormatter.units(comp.param("tau1"), "s"))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

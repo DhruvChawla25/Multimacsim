@@ -99,6 +99,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "A", range: 0...100, sliderRange: 0...0.1, isLogarithmic: false, usesESeries: false)
             case .clockCurrentSource:
                 return ParameterSpec(label: label, unit: "A", range: -100...100, sliderRange: -0.1...0.1, isLogarithmic: false, usesESeries: false)
+            case .exponentialCurrentSource:
+                return ParameterSpec(label: label, unit: "A", range: -100...100, sliderRange: -0.1...0.1, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }

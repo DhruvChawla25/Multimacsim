@@ -96,6 +96,14 @@ extension ComponentKind {
                 ExtraParameter("duty", .linear("Duty Cycle:", "%", 1...99), default: 50),
                 ExtraParameter("edge", .log("Rise / Fall Time:", "s", 1e-12...1, slider: 1e-9...1e-3), default: 1e-9),
             ]
+        case .exponentialCurrentSource:
+            return [
+                ExtraParameter("v1", .linear("Initial Value I1:", "A", -100...100, slider: -0.1...0.1), default: 0),
+                ExtraParameter("td1", .linear("Rise Delay TD1:", "s", 0...100, slider: 0...0.05), default: 0),
+                ExtraParameter("tau1", .log("Rise Time Constant τ1:", "s", 1e-9...100, slider: 1e-6...1), default: 1e-3),
+                ExtraParameter("td2", .linear("Fall Delay TD2:", "s", 0...100, slider: 0...0.05), default: 5e-3),
+                ExtraParameter("tau2", .log("Fall Time Constant τ2:", "s", 1e-9...100, slider: 1e-6...1), default: 1e-3),
+            ]
         default:
             return []
         }
