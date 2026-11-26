@@ -318,6 +318,17 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
                 Pin(index: 2, name: "I+", relativeX: -25, relativeY: -20),
                 Pin(index: 3, name: "I-", relativeX: -25, relativeY: 20)
             ]
+        case .abmVoltage:
+            return [
+                Pin(index: 0, name: "+", relativeX: 0, relativeY: -30),
+                Pin(index: 1, name: "-", relativeX: 0, relativeY: 30)
+            ]
+
+        case .abmCurrent:
+            return [
+                Pin(index: 0, name: "OUT", relativeX: 0, relativeY: -30),
+                Pin(index: 1, name: "IN", relativeX: 0, relativeY: 30)
+            ]
         case .logicNOT, .logicBuffer:
             // 1 input on left, 1 output on right
             return [

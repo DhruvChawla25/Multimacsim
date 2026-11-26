@@ -109,6 +109,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "Ω", range: -1e9...1e9, sliderRange: -1e4...1e4, isLogarithmic: false, usesESeries: false)
             case .cccs:
                 return ParameterSpec(label: label, unit: "", range: -1e6...1e6, sliderRange: -100...100, isLogarithmic: false, usesESeries: false)
+            case .abmVoltage, .abmCurrent:
+                return nil
             case .bjtNPN, .bjtPNP:
                 return nil
             }

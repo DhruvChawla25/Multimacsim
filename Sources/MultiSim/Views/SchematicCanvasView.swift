@@ -700,6 +700,9 @@ public struct SchematicCanvasView: View {
             return "r: \(EngineeringFormatter.resistance(comp.value))"
         case .cccs:
             return "β: \(comp.value)"
+        case .abmVoltage, .abmCurrent:
+            let e = comp.textValue
+            return (comp.kind == .abmVoltage ? "V = " : "I = ") + (e.count > 22 ? String(e.prefix(21)) + "…" : e)
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

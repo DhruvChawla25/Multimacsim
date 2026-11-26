@@ -194,6 +194,10 @@ public struct ComponentSymbolView: View {
             DependentSourceSymbol(isVoltageSource: true, currentSense: true).stroke(symbolColor, lineWidth: lineWidth)
         case .cccs:
             DependentSourceSymbol(isVoltageSource: false, currentSense: true).stroke(symbolColor, lineWidth: lineWidth)
+        case .abmVoltage:
+            BehaviouralSourceSymbol(isCurrent: false).stroke(symbolColor, lineWidth: lineWidth)
+        case .abmCurrent:
+            BehaviouralSourceSymbol(isCurrent: true).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
@@ -1028,6 +1032,32 @@ public struct SignalSourceSymbol: Shape {
             path.move(to: p(-8, -2)); path.addLine(to: p(8, -2))
             path.move(to: p(-8, 2)); path.addLine(to: p(-3, 2))
             path.move(to: p(3, 2)); path.addLine(to: p(8, 2))
+        }
+        return path
+    }
+}
+
+/// Behavioural (ABM) source: an upright diamond with + / - marks (voltage) or an arrow (current).
+public struct BehaviouralSourceSymbol: Shape {
+    public let isCurrent: Bool
+
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let x = rect.midX, y = rect.midY
+        path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: y - 17))
+        path.move(to: CGPoint(x: x, y: y + 17)); path.addLine(to: CGPoint(x: x, y: 60))
+        path.move(to: CGPoint(x: x, y: y - 17))
+        path.addLine(to: CGPoint(x: x + 17, y: y))
+        path.addLine(to: CGPoint(x: x, y: y + 17))
+        path.addLine(to: CGPoint(x: x - 17, y: y))
+        path.closeSubpath()
+        if isCurrent {
+            path.move(to: CGPoint(x: x, y: y + 9)); path.addLine(to: CGPoint(x: x, y: y - 9))
+            path.move(to: CGPoint(x: x - 4, y: y - 4)); path.addLine(to: CGPoint(x: x, y: y - 9)); path.addLine(to: CGPoint(x: x + 4, y: y - 4))
+        } else {
+            path.move(to: CGPoint(x: x - 3, y: y - 8)); path.addLine(to: CGPoint(x: x + 3, y: y - 8))
+            path.move(to: CGPoint(x: x, y: y - 11)); path.addLine(to: CGPoint(x: x, y: y - 5))
+            path.move(to: CGPoint(x: x - 3, y: y + 8)); path.addLine(to: CGPoint(x: x + 3, y: y + 8))
         }
         return path
     }

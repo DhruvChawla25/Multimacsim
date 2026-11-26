@@ -76,6 +76,8 @@ public enum ComponentKind: String, Codable, CaseIterable {
     // Controlled sources (v6): current-controlled through a sense branch between I+ and I-
     case ccvs = "CCVS (Current-Controlled Voltage Source)"
     case cccs = "CCCS (Current-Controlled Current Source)"
+    case abmVoltage = "ABM Voltage Source"
+    case abmCurrent = "ABM Current Source"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -147,6 +149,8 @@ extension ComponentKind {
             return .signalCurrentSources
         case .ccvs, .cccs:
             return .controlledSources
+        case .abmVoltage, .abmCurrent:
+            return .controlledSources
         case .probe:
             return .probes
         }
@@ -211,6 +215,8 @@ extension ComponentKind {
         case .pwlCurrentSource: return "I"
         case .ccvs: return "H"
         case .cccs: return "F"
+        case .abmVoltage: return "B"
+        case .abmCurrent: return "B"
         case .probe: return "P"
         }
     }
@@ -280,6 +286,8 @@ extension ComponentKind {
         case .pwlCurrentSource: return "PWL Current"
         case .ccvs: return "CCVS (Current Controlled V)"
         case .cccs: return "CCCS (Current Controlled I)"
+        case .abmVoltage: return "ABM Voltage (expression)"
+        case .abmCurrent: return "ABM Current (expression)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -346,6 +354,8 @@ extension ComponentKind {
         case .pwlCurrentSource: return "chart.xyaxis.line"
         case .ccvs: return "diamond.lefthalf.filled"
         case .cccs: return "diamond.righthalf.filled"
+        case .abmVoltage: return "function"
+        case .abmCurrent: return "x.squareroot"
         case .probe: return "pin"
         }
     }

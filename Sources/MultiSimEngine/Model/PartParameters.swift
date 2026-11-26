@@ -122,6 +122,10 @@ extension ComponentKind {
     /// Free-text setting, if the part has one.
     public var textParameter: TextParameter? {
         switch self {
+        case .abmVoltage, .abmCurrent:
+            return TextParameter(label: self == .abmVoltage ? "Output voltage V(+,-) =" : "Output current (out of OUT) =",
+                                 defaultText: self == .abmVoltage ? "5*sin(2*pi*50*time)" : "1m*sin(2*pi*50*time)",
+                                 help: "Use V(3) for node 3, V(R1) for the voltage across R1, V(a,b) for a difference, I(R1) for a part's current, time, pi, + - * / ^ and sin cos tan exp log log10 abs sqrt min max limit(x,lo,hi).")
         case .pwlCurrentSource:
             return TextParameter(label: "Points (time current, one pair per line):", defaultText: "0 0\n1m 10m\n2m 10m\n3m 0",
                                  help: "Straight lines join the points. Current in amps: 10m = 10 mA. Times: 1m = 1 ms.")
@@ -157,6 +161,9 @@ extension CircuitComponent {
         switch kind {
         case _ where kind.usesPWLText:
             if case .failure(let e) = PWLTable.parse(textValue) { return e.description }
+            return nil
+        case .abmVoltage, .abmCurrent:
+            if case .failure(let e) = Expression.parse(textValue) { return e.description }
             return nil
         default:
             return nil

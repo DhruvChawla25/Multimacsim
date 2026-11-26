@@ -256,6 +256,15 @@ public final class SPICEExporter {
                 } else {
                     lines.append("\(name) \(node(1)) \(node(0)) V\(name)_SENSE \(comp.value)")
                 }
+            case .abmVoltage, .abmCurrent:
+                if let parsed = ExpressionCache.shared.expression(for: comp.textValue) {
+                    let expr = spiceExpression(parsed, circuit: circuit, pinToNode: pinToNode)
+                    if comp.kind == .abmVoltage {
+                        lines.append("\(name) \(node(0)) \(node(1)) V={\(expr)}")
+                    } else {
+                        lines.append("\(name) \(node(1)) \(node(0)) I={\(expr)}")
+                    }
+                }
             default:
                 // Signal sources describe themselves (SIN, PULSE, PWL, EXP, SFFM ...).
                 if let spec = SourceWaveforms.spiceSpec(comp) {
@@ -283,6 +292,35 @@ public final class SPICEExporter {
         lines.append(".end")
 
         return lines.joined(separator: "\n")
+    }
+
+    /// Behavioural expression in ngspice syntax: node numbers and part names become netlist node names.
+    static func spiceExpression(_ parsed: Expression.Parsed, circuit: Circuit, pinToNode: [UUID: Int]) -> String {
+        func net(_ n: Int) -> String { n == 0 ? "0" : "N\(n)" }
+        func refText(_ r: Expression.Reference) -> String {
+            switch r {
+            case .nodeVoltage(let n): return "V(\(net(n)))"
+            case .partVoltage(let name):
+                let (part, pin) = MNASolver.splitPinReference(name)
+                guard let c = circuit.components.first(where: { $0.designator == part }) else { return "0" }
+                let nodes = c.pins.map { pinToNode[$0.id] ?? 0 }
+                if let pin { return pin < nodes.count ? "V(\(net(nodes[pin])))" : "0" }
+                return nodes.count >= 2 ? "V(\(net(nodes[0])),\(net(nodes[1])))" : "V(\(net(nodes.first ?? 0)))"
+            case .difference(let a, let b): return "(\(refText(a))-\(refText(b)))"
+            case .partCurrent(let name): return "I(\(name))"
+            }
+        }
+        func text(_ e: Expression) -> String {
+            switch e {
+            case .number(let v): return "\(v)"
+            case .time: return "time"
+            case .reference(let i): return i < parsed.references.count ? refText(parsed.references[i]) : "0"
+            case .negate(let a): return "(-\(text(a)))"
+            case .binary(let op, let a, let b): return op == "^" ? "pow(\(text(a)),\(text(b)))" : "(\(text(a))\(op)\(text(b)))"
+            case .call(let f, let args): return "\(f == "ln" ? "log" : f)(\(args.map(text).joined(separator: ",")))"
+            }
+        }
+        return text(parsed.root)
     }
 
     private static func formatValue(_ val: Double) -> String {

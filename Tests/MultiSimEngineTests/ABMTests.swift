@@ -39,3 +39,59 @@ final class ExpressionTests: XCTestCase {
         XCTAssertEqual(Expression.parse("system(\"rm\")"), .failure(.unexpected("\"")))
     }
 }
+final class ABMSourceTests: XCTestCase {
+    func testABMVoltageAmplifiesANode() {
+        let bench = TestBench()
+        let v = bench.add(.dcVoltageSource, "V1", value: 1.5)
+        let r = bench.add(.resistor, "R1", value: 1000)
+        let b = bench.add(.abmVoltage, "B1")
+        let load = bench.add(.resistor, "RL", value: 100)
+        bench.wire(v.pins[0], r.pins[0]); bench.ground(v.pins[1], r.pins[1], b.pins[1], load.pins[1])
+        bench.wire(b.pins[0], load.pins[0])
+        let n = bench.node(v.pins[0])
+        b.text = "3*V(\(n)) + 2*V(R1) + 1k*I(R1)" // 4.5 + 3 + 1.5 = 9 V
+        let res = bench.solver().step()
+        XCTAssertEqual(bench.voltage(load.pins[0], res), 9, accuracy: 1e-6)
+        XCTAssertEqual(b.runtimeCurrent, 0.09, accuracy: 1e-6)
+    }
+
+    func testABMCurrentSquareLawConverges() {
+        // Square-law "transistor": I = 2m·V(ctrl)², into 1 kΩ.
+        let bench = TestBench()
+        let v = bench.add(.dcVoltageSource, "VG", value: 2)
+        let b = bench.add(.abmCurrent, "B1")
+        let load = bench.add(.resistor, "RL", value: 1000)
+        bench.ground(v.pins[1], b.pins[1], load.pins[1])
+        bench.wire(b.pins[0], load.pins[0])
+        b.text = "2m*V(VG)^2"
+        let res = bench.solver().step()
+        XCTAssertTrue(res.converged)
+        XCTAssertEqual(load.runtimeCurrent, 0.008, accuracy: 1e-9)
+        XCTAssertEqual(bench.voltage(load.pins[0], res), 8, accuracy: 1e-6)
+    }
+
+    func testABMWithFeedbackSolvesSelfConsistently() {
+        // V(out) = 10 - V(out)^2 / 10  ->  V = 7.0156 (positive root of v² + 10v - 100 = 0)
+        let bench = TestBench()
+        let b = bench.add(.abmVoltage, "B1")
+        let load = bench.add(.resistor, "RL", value: 1000)
+        bench.wire(b.pins[0], load.pins[0]); bench.ground(b.pins[1], load.pins[1])
+        b.text = "10 - V(RL)^2/10"
+        let res = bench.solver().step()
+        XCTAssertTrue(res.converged)
+        XCTAssertEqual(bench.voltage(load.pins[0], res), (-10 + (100.0 + 400).squareRoot()) / 2, accuracy: 1e-6)
+    }
+
+    func testABMDefaultIsATimeSignal() {
+        let bench = TestBench()
+        let b = bench.add(.abmVoltage, "B1")
+        let load = bench.add(.resistor, "RL", value: 1000)
+        bench.wire(b.pins[0], load.pins[0]); bench.ground(b.pins[1], load.pins[1])
+        let solver = bench.solver(dt: 1e-3)
+        var res = solver.step()
+        for _ in 0..<4 { res = solver.step() } // 5 ms = quarter cycle of 50 Hz
+        XCTAssertEqual(bench.voltage(load.pins[0], res), 5, accuracy: 1e-6)
+        XCTAssertNil(b.textValidationError)
+        XCTAssertTrue(SPICEExporter.export(circuit: bench.circuit).contains("V={"))
+    }
+}

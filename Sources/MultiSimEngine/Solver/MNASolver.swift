@@ -386,7 +386,7 @@ public final class MNASolver {
     /// Parts whose stamp depends on the present solution, so Newton has to iterate.
     static func isNonlinear(_ kind: ComponentKind) -> Bool {
         switch kind {
-        case .diode, .led, .zenerDiode, .schottkyDiode, .bjtNPN, .bjtPNP, .opAmp:
+        case .diode, .led, .zenerDiode, .schottkyDiode, .bjtNPN, .bjtPNP, .opAmp, .abmVoltage, .abmCurrent:
             return true
         default:
             return kind.isLogicGate
@@ -444,6 +444,8 @@ public final class MNASolver {
         case .ccvs:
             return 2
         case .cccs:
+            return 1
+        case .abmVoltage:
             return 1
         case .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer:
             return 1
@@ -525,6 +527,8 @@ public final class MNASolver {
         case .bjtNPN, .bjtPNP:
             stampBJT(comp, nodes: [node(0), node(1), node(2)], into: &sys, ctx: ctx, pnp: comp.kind == .bjtPNP)
 
+        case .abmCurrent:
+            stampBehavioural(comp, nodes: n, into: &sys, ctx: ctx, branch: nil)
         case .vccs:
             // Voltage-Controlled Current Source: I = gm * (V_ctrl+ - V_ctrl-), pushed out of OUT+
             // (the terminal the diamond's arrow points to).
@@ -588,6 +592,8 @@ public final class MNASolver {
             // Sense branch, then β·i_s pushed out of OUT+ (the arrow tip).
             sys.voltageSource(k, plus: node(2), minus: node(3), value: 0)
             sys.currentControlledCurrent(from: node(1), to: node(0), auxColumn: k, comp.value)
+        case .abmVoltage:
+            stampBehavioural(comp, nodes: n, into: &sys, ctx: ctx, branch: k)
         case .opAmp:
             // Macro-model: output driven against ground with open-loop gain A = 1e5, clipped at the rails.
             // In the linear region the gain is stamped as a VCVS so Newton sees the true slope.
@@ -607,6 +613,115 @@ public final class MNASolver {
 
         default:
             break
+        }
+    }
+
+    // MARK: - Behavioural (ABM) sources
+
+    /// A circuit quantity written as a linear function of the unknowns: Σ coef·x[col] + constant.
+    struct LinearForm {
+        var terms: [(col: Int, coef: Double)] = []
+        var constant: Double = 0
+
+        func value(_ x: [Double]) -> Double {
+            terms.reduce(constant) { $0 + $1.coef * ($1.col < x.count ? x[$1.col] : 0) }
+        }
+
+        static func - (a: LinearForm, b: LinearForm) -> LinearForm {
+            LinearForm(terms: a.terms + b.terms.map { ($0.col, -$0.coef) }, constant: a.constant - b.constant)
+        }
+
+        static func node(_ n: Int, count: Int) -> LinearForm {
+            n > 0 && n <= count ? LinearForm(terms: [(n - 1, 1)]) : LinearForm()
+        }
+    }
+
+    /// "R1.0" -> ("R1", 0): a part name with an optional pin index.
+    static func splitPinReference(_ name: String) -> (String, Int?) {
+        if let dot = name.lastIndex(of: "."), let pin = Int(name[name.index(after: dot)...]) {
+            return (String(name[..<dot]), pin)
+        }
+        return (name, nil)
+    }
+
+    /// How an expression reference reads the solution vector.
+    func linearForm(for ref: Expression.Reference) -> LinearForm {
+        switch ref {
+        case .nodeVoltage(let n):
+            return .node(n, count: totalNodes)
+        case .difference(let a, let b):
+            return linearForm(for: a) - linearForm(for: b)
+        case .partVoltage(let name):
+            let (part, pin) = Self.splitPinReference(name)
+            guard let c = circuit.components.first(where: { $0.designator == part }) else { return LinearForm() }
+            let n = nodeIndices(for: c)
+            if let pin { return pin < n.count ? .node(n[pin], count: totalNodes) : LinearForm() }
+            if n.count >= 2 { return .node(n[0], count: totalNodes) - .node(n[1], count: totalNodes) }
+            return .node(n.first ?? 0, count: totalNodes)
+        case .partCurrent(let name):
+            guard let c = circuit.components.first(where: { $0.designator == name }) else { return LinearForm() }
+            return currentForm(of: c)
+        }
+    }
+
+    /// Current of a part in the same sense as its runtimeCurrent (through it pin 0 -> pin 1; delivered for sources).
+    private func currentForm(of c: CircuitComponent) -> LinearForm {
+        let n = nodeIndices(for: c)
+        if let k = auxStart[c.id] {
+            let col = totalNodes + k
+            switch c.kind {
+            case .inductor: return LinearForm(terms: [(col, 1)])
+            case .ccvs: return LinearForm(terms: [(col + 1, -1)])
+            case .cccs: return LinearForm(terms: [(col, c.value)])
+            default: return LinearForm(terms: [(col, -1)])
+            }
+        }
+        if n.count >= 2, c.kind.isLinearResistive || c.kind == .multimeter, let r = resistance(of: c) {
+            return LinearForm(terms: [(n[0] - 1, 1 / r), (n[1] - 1, -1 / r)].filter { $0.0 >= 0 })
+        }
+        if c.kind.isWaveformCurrentSource { return LinearForm(constant: SourceWaveforms.value(c, at: currentTime)) }
+        // Anything else (capacitors, junctions) is read from the last accepted step.
+        return LinearForm(constant: c.runtimeCurrent)
+    }
+
+    /// Value of an ABM expression on a full solution vector.
+    func behaviouralValue(_ comp: CircuitComponent, x: [Double], time: Double) -> Double {
+        guard let parsed = ExpressionCache.shared.expression(for: comp.textValue) else { return 0 }
+        let refs = parsed.references.map { linearForm(for: $0).value(x) }
+        return parsed.root.evaluate(refs: refs, time: time)
+    }
+
+    /// Newton linearisation of an ABM source: f(x) ≈ f(x0) + Σ ∂f/∂x_j (x_j − x0_j), with the partials
+    /// from central differences on each reference. Voltage form on branch `k`, current form otherwise.
+    private func stampBehavioural(_ comp: CircuitComponent, nodes n: [Int], into sys: inout MNASystem, ctx: StampContext, branch k: Int?) {
+        let outP = n.count > 0 ? n[0] : 0, outM = n.count > 1 ? n[1] : 0
+        var gradient: [Int: Double] = [:]
+        var f0 = 0.0
+        if let parsed = ExpressionCache.shared.expression(for: comp.textValue) {
+            let forms = parsed.references.map { linearForm(for: $0) }
+            let r0 = forms.map { $0.value(ctx.x) }
+            f0 = parsed.root.evaluate(refs: r0, time: ctx.time)
+            for (i, form) in forms.enumerated() where !form.terms.isEmpty {
+                let d = 1e-6 * max(1, abs(r0[i]))
+                var up = r0, down = r0
+                up[i] += d; down[i] -= d
+                let slope = (parsed.root.evaluate(refs: up, time: ctx.time) - parsed.root.evaluate(refs: down, time: ctx.time)) / (2 * d)
+                guard slope.isFinite, slope != 0 else { continue }
+                for t in form.terms { gradient[t.col, default: 0] += slope * t.coef }
+            }
+        }
+        let constant = gradient.reduce(f0) { $0 - $1.value * (($1.key < ctx.x.count) ? ctx.x[$1.key] : 0) }
+        if let k {
+            sys.branch(k, plus: outP, minus: outM)
+            for (col, g) in gradient { sys.A[sys.auxIndex(k), col] -= g }
+            sys.setBranchRHS(k, constant)
+        } else {
+            // Current pushed out of OUT (pin 0): flows through the part from pin 1 to pin 0.
+            for (col, g) in gradient {
+                if outM > 0 { sys.A[outM - 1, col] += g }
+                if outP > 0 { sys.A[outP - 1, col] -= g }
+            }
+            sys.current(from: outM, to: outP, constant)
         }
     }
 
@@ -927,6 +1042,13 @@ public final class MNASolver {
                     comp.runtimeState = [sense]
                     comp.runtimeCurrent = comp.kind == .ccvs ? -x[totalNodes + k + 1] : comp.value * sense
                 }
+            case .abmVoltage:
+                if let k = auxStart[comp.id], totalNodes + k < x.count { comp.runtimeCurrent = -x[totalNodes + k] }
+                comp.runtimeReading = vDrop
+
+            case .abmCurrent:
+                comp.runtimeCurrent = behaviouralValue(comp, x: x, time: currentTime)
+                comp.runtimeReading = comp.runtimeCurrent
             case .ohmmeter:
                 let test = ohmmeterTestCurrent(for: comp)
                 comp.runtimeCurrent = test
