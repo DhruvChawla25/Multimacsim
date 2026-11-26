@@ -36,6 +36,7 @@ public struct ACAnalysisView: View {
                         waveformSection(ac)
                         reactanceSection(ac)
                         summarySection(ac)
+                        threePhaseSection(ac)
                         meterSection(ac)
                         powerSection(ac)
                     }
@@ -230,6 +231,38 @@ public struct ACAnalysisView: View {
                 ForEach(ac.parts.filter { $0.kind == .resistor }) { part in
                     GridRow { mono("Power in \(part.designator)"); mono(String(format: "%.3f W", part.averagePower)) }
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func threePhaseSection(_ ac: ACSteadyStateResult) -> some View {
+        ForEach(ac.threePhase) { r in
+            VStack(alignment: .leading, spacing: 6) {
+                sectionTitle("Three-Phase Source \(r.designator) (\(r.isWye ? "wye / star" : "delta"))")
+                Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 6) {
+                    GridRow { header("Phase"); header("Line current (RMS)"); header("∠"); header(r.isWye ? "Phase voltage (RMS)" : "Winding voltage (RMS)"); header("Line voltage (RMS)") }
+                    Divider().gridCellUnsizedAxes(.horizontal)
+                    ForEach(0..<3, id: \.self) { i in
+                        GridRow {
+                            mono(["A", "B", "C"][i])
+                            mono(EngineeringFormatter.current(r.lineCurrents[i].magnitude / 2.0.squareRoot()))
+                            mono(String(format: "%+.2f°", r.lineCurrents[i].angleDegrees))
+                            mono(EngineeringFormatter.voltage(r.phaseVoltages[i].magnitude / 2.0.squareRoot()))
+                            mono("\(["AB", "BC", "CA"][i]) " + EngineeringFormatter.voltage(r.lineVoltages[i].magnitude / 2.0.squareRoot()))
+                        }
+                    }
+                    if r.isWye {
+                        GridRow {
+                            mono("Neutral")
+                            mono(EngineeringFormatter.current(r.neutralCurrent.magnitude / 2.0.squareRoot()))
+                            mono(r.neutralCurrent.magnitude < 1e-9 ? "-" : String(format: "%+.2f°", r.neutralCurrent.angleDegrees))
+                            mono(r.currentUnbalance < 1.001 ? "balanced load" : String(format: "unbalanced (max/min %.2f)", r.currentUnbalance))
+                            mono("")
+                        }
+                    }
+                }
+                mono(String(format: "P = %.3f W    Q = %+.3f VAR    S = %.3f VA", r.complexPower.re, r.complexPower.im, r.complexPower.magnitude))
             }
         }
     }

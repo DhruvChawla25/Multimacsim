@@ -172,7 +172,7 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
     public var bodyHalfSize: Double {
         switch kind {
         case .opAmp, .logicAND, .logicOR, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer,
-             .vcvs, .vccs, .wattmeter, .bjtNPN, .bjtPNP:
+             .vcvs, .vccs, .wattmeter, .bjtNPN, .bjtPNP, .threePhaseWye, .threePhaseDelta:
             return 34
         case .ground, .probe:
             return 22
@@ -276,6 +276,21 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
                 Pin(index: 2, name: "OUT", relativeX: 30, relativeY: 0)
             ]
 
+        case .threePhaseWye:
+            // Lines A, B, C on the right, neutral on the left.
+            return [
+                Pin(index: 0, name: "A", relativeX: 30, relativeY: -20),
+                Pin(index: 1, name: "B", relativeX: 30, relativeY: 0),
+                Pin(index: 2, name: "C", relativeX: 30, relativeY: 20),
+                Pin(index: 3, name: "N", relativeX: -30, relativeY: 0)
+            ]
+
+        case .threePhaseDelta:
+            return [
+                Pin(index: 0, name: "A", relativeX: 30, relativeY: -20),
+                Pin(index: 1, name: "B", relativeX: 30, relativeY: 0),
+                Pin(index: 2, name: "C", relativeX: 30, relativeY: 20)
+            ]
         case .logicNOT, .logicBuffer:
             // 1 input on left, 1 output on right
             return [

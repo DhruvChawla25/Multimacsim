@@ -286,6 +286,14 @@ public enum ACSteadyStateAnalyzer {
                 } else {
                     impedances[comp.id] = Complex(max(total * ratio, 1e-6))
                 }
+            case .threePhaseWye, .threePhaseDelta:
+                let peak = SourceWaveforms.threePhasePeak(comp)
+                let ang = SourceWaveforms.threePhaseAngles(comp)
+                if comp.kind == .threePhaseWye {
+                    for i in 0..<3 { sys.voltageSource(k + i, plus: node(i), minus: node(3), polar(peak, degrees: ang[i])) }
+                } else {
+                    for i in 0..<2 { sys.voltageSource(k + i, plus: node(i), minus: node(i + 1), polar(peak, degrees: ang[i])) }
+                }
             case .dcCurrentSource:
                 fixedCurrents[comp.id] = .zero // open circuit for AC
             case .vcvs:
@@ -343,13 +351,30 @@ public enum ACSteadyStateAnalyzer {
         var parts: [ComponentPhasor] = []
         var referencePhasor: ComponentPhasor?
         var referenceCurrent = Complex.zero
+        var threePhase: [ThreePhaseReport] = []
         for comp in circuit.components {
             let n = nodes(comp)
             guard n.count >= 2 else { continue }
             let drop = v(n[0]) - v(n[1])
             var current: Complex?
             var voltage = drop
-            if let w = wattmeters[comp.id], n.count >= 4 {
+            if comp.kind == .threePhaseWye || comp.kind == .threePhaseDelta {
+                let wye = comp.kind == .threePhaseWye
+                let a = auxValue(comp, 0), b = auxValue(comp, 1)
+                let lines = wye ? [-a, -b, -auxValue(comp, 2)] : [-a, a - b, b]
+                let lineV = [v(n[0]) - v(n[1]), v(n[1]) - v(n[2]), v(n[2]) - v(n[0])]
+                let phaseV = wye ? (0..<3).map { v(n[$0]) - v(n[3]) } : lineV
+                // Delta winding currents are indeterminate for ideal windings; power comes from the line side.
+                let s: Complex = wye
+                    ? (0..<3).reduce(Complex.zero) { $0 + phaseV[$1] * conj(lines[$1]) }
+                    : (v(n[0]) - v(n[2])) * conj(lines[0]) + (v(n[1]) - v(n[2])) * conj(lines[1])
+                threePhase.append(ThreePhaseReport(id: comp.id, designator: comp.designator, isWye: wye,
+                                                   lineCurrents: lines, phaseVoltages: phaseV, lineVoltages: lineV,
+                                                   complexPower: Complex(0.5 * s.re, 0.5 * s.im)))
+                // As a single part: phase A voltage and line A current.
+                voltage = phaseV[0]
+                current = lines[0]
+            } else if let w = wattmeters[comp.id], n.count >= 4 {
                 // Voltage = pressure-coil voltage, current = current-coil current,
                 // so `averagePower` is exactly what the wattmeter reads.
                 voltage = v(n[2]) - v(n[3])
@@ -384,7 +409,7 @@ public enum ACSteadyStateAnalyzer {
             parts: parts,
             reactances: reactances,
             nodeVoltages: nodeMap,
-            threePhase: []
+            threePhase: threePhase
         ))
     }
 
@@ -395,6 +420,8 @@ public enum ACSteadyStateAnalyzer {
             return comp.secondaryValue > 0 ? comp.secondaryValue : 50.0
         case .functionGenerator where (GeneratorWaveform(rawValue: comp.modeIndex) ?? .sine) == .sine:
             return comp.secondaryValue > 0 ? comp.secondaryValue : 1000.0
+        case .threePhaseWye, .threePhaseDelta:
+            return comp.secondaryValue > 0 ? comp.secondaryValue : 50.0
         default:
             return nil
         }
@@ -407,6 +434,10 @@ public enum ACSteadyStateAnalyzer {
         switch comp.kind {
         case .dcVoltageSource, .acVoltageSource, .functionGenerator, .clockSource, .vcvs, .opAmp:
             return 1
+        case .threePhaseWye:
+            return 3
+        case .threePhaseDelta:
+            return 2
         default:
             return 0
         }
@@ -417,6 +448,8 @@ public enum ACSteadyStateAnalyzer {
         guard acDriveFrequency(comp) != nil else { return .zero }
         return Complex(comp.value)
     }
+
+    static func conj(_ z: Complex) -> Complex { Complex(z.re, -z.im) }
 
     public static func polar(_ magnitude: Double, degrees: Double) -> Complex {
         let r = degrees * .pi / 180

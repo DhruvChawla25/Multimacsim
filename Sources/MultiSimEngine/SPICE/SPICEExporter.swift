@@ -226,6 +226,19 @@ public final class SPICEExporter {
                 // SPICE G pushes current out of its second node, which is our OUT+ terminal.
                 lines.append("\(name) \(nOutM) \(nOutP) \(nCtrlP) \(nCtrlM) \(comp.value)")
 
+            case .threePhaseWye, .threePhaseDelta:
+                let f = comp.secondaryValue > 0 ? comp.secondaryValue : 50
+                let peak = SourceWaveforms.threePhasePeak(comp)
+                let ang = SourceWaveforms.threePhaseAngles(comp)
+                if comp.kind == .threePhaseWye {
+                    for (i, ph) in ["A", "B", "C"].enumerated() {
+                        lines.append("\(name)\(ph) \(node(i)) \(node(3)) SIN(0 \(formatValue(peak)) \(f) 0 0 \(ang[i]))")
+                    }
+                } else {
+                    // Two windings fix the third (an ideal delta's V_CA = -(V_AB + V_BC)).
+                    lines.append("\(name)AB \(node(0)) \(node(1)) SIN(0 \(formatValue(peak)) \(f) 0 0 \(ang[0]))")
+                    lines.append("\(name)BC \(node(1)) \(node(2)) SIN(0 \(formatValue(peak)) \(f) 0 0 \(ang[1]))")
+                }
             default:
                 break
             }

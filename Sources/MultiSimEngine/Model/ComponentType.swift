@@ -53,6 +53,9 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case logicXNOR = "XNOR Gate"
     case logicBuffer = "Buffer"
 
+    // Power sources (v6)
+    case threePhaseWye = "Three-Phase Voltage Source (Wye)"
+    case threePhaseDelta = "Three-Phase Voltage Source (Delta)"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -94,6 +97,8 @@ extension ComponentKind {
         case .opAmp, .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR,
              .logicXOR, .logicXNOR, .logicBuffer:
             return .analogLogic
+        case .threePhaseWye, .threePhaseDelta:
+            return .powerSources
         case .probe:
             return .probes
         }
@@ -138,6 +143,7 @@ extension ComponentKind {
         case .logicXOR: return "U_XOR"
         case .logicXNOR: return "U_XNOR"
         case .logicBuffer: return "U_BUF"
+        case .threePhaseWye, .threePhaseDelta: return "V"
         case .probe: return "P"
         }
     }
@@ -186,6 +192,8 @@ extension ComponentKind {
         case .logicXOR: return "XOR Gate"
         case .logicXNOR: return "XNOR Gate"
         case .logicBuffer: return "Buffer"
+        case .threePhaseWye: return "3-Phase Wye (Star)"
+        case .threePhaseDelta: return "3-Phase Delta"
         case .probe: return "Voltage Probe"
         }
     }
@@ -233,6 +241,8 @@ extension ComponentKind {
         case .logicXOR: return "divide"
         case .logicXNOR: return "equals"
         case .logicBuffer: return "arrow.right.to.line"
+        case .threePhaseWye: return "asterisk.circle"
+        case .threePhaseDelta: return "triangle.circle"
         case .probe: return "pin"
         }
     }
@@ -290,7 +300,8 @@ extension ComponentKind {
     /// Ideal voltage sources that need an auxiliary MNA variable.
     public var isVoltageSourceType: Bool {
         switch self {
-        case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator: return true
+        case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator,
+             .threePhaseWye, .threePhaseDelta: return true
         default: return false
         }
     }
@@ -356,6 +367,7 @@ extension ComponentKind {
         case .ohmmeter: return PartDefaults(value: 1e-3)
         case .wattmeter: return PartDefaults(value: 0.05, secondaryValue: 1e6)
         case .multimeter: return PartDefaults(value: Self.idealVoltmeterR, modeIndex: MeterMode.voltage.rawValue)
+        case .threePhaseWye, .threePhaseDelta: return PartDefaults(value: 400, secondaryValue: 50)
         default: return PartDefaults()
         }
     }
@@ -387,6 +399,7 @@ extension ComponentKind {
         case .vcvs: return "Voltage Gain (μ):"
         case .vccs: return "Transconductance gm (S):"
         case .zenerDiode: return "Forward Drop Model (V):"
+        case .threePhaseWye, .threePhaseDelta: return "Line Voltage (V RMS):"
         default: return "Value:"
         }
     }
@@ -402,6 +415,7 @@ extension ComponentKind {
         case .wattmeter: return "Pressure-Coil Resistance (Ω):"
         case .zenerDiode: return "Zener Breakdown (V):"
         case .bjtNPN, .bjtPNP: return "Current Gain (β / hFE):"
+        case .threePhaseWye, .threePhaseDelta: return "Frequency (Hz):"
         default: return nil
         }
     }

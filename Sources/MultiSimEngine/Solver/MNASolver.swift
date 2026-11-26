@@ -431,6 +431,10 @@ public final class MNASolver {
         switch comp.kind {
         case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator, .opAmp, .vcvs, .inductor:
             return 1
+        case .threePhaseWye:
+            return 3
+        case .threePhaseDelta:
+            return 2
         case .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer:
             return 1
         default:
@@ -548,6 +552,19 @@ public final class MNASolver {
             sys.branchDependsOnNode(k, node: node(2), -comp.value)
             sys.branchDependsOnNode(k, node: node(3), comp.value)
 
+        case .threePhaseWye:
+            // Three phase windings from the neutral: A-N, B-N, C-N.
+            for i in 0..<3 {
+                sys.voltageSource(k + i, plus: node(i), minus: node(3),
+                                  value: ctx.sourceScale * SourceWaveforms.threePhaseValue(comp, phase: i, at: ctx.time))
+            }
+
+        case .threePhaseDelta:
+            // Windings A-B and B-C; an ideal delta's C-A winding is then fixed (and would make the loop singular).
+            for i in 0..<2 {
+                sys.voltageSource(k + i, plus: node(i), minus: node(i + 1),
+                                  value: ctx.sourceScale * SourceWaveforms.threePhaseValue(comp, phase: i, at: ctx.time))
+            }
         case .opAmp:
             // Macro-model: output driven against ground with open-loop gain A = 1e5, clipped at the rails.
             // In the linear region the gain is stamped as a VCVS so Newton sees the true slope.
@@ -863,6 +880,17 @@ public final class MNASolver {
                 comp.runtimeCurrent = Self.zenerCurrent(vDrop, vz: vz).i
                 comp.runtimePrevVoltage = vDrop
 
+            case .threePhaseWye, .threePhaseDelta:
+                // Line currents delivered out of A, B, C.
+                if let k = auxStart[comp.id], totalNodes + k + (comp.kind == .threePhaseWye ? 2 : 1) < x.count {
+                    let a = x[totalNodes + k], b = x[totalNodes + k + 1]
+                    if comp.kind == .threePhaseWye {
+                        comp.runtimeState = [-a, -b, -x[totalNodes + k + 2]]
+                    } else {
+                        comp.runtimeState = [-a, a - b, b]
+                    }
+                    comp.runtimeCurrent = comp.runtimeState[0]
+                }
             case .ohmmeter:
                 let test = ohmmeterTestCurrent(for: comp)
                 comp.runtimeCurrent = test
@@ -924,10 +952,9 @@ public final class MNASolver {
         }
     }
 
-    /// Averaging time for AC meters: five periods of the slowest AC source, or nil in a DC circuit.
+    /// Averaging time for AC meters: five periods of the slowest periodic source, or nil in a DC circuit.
     var acAveragingWindow: Double? {
-        let freqs = circuit.components.filter { $0.kind == .acVoltageSource }
-            .map { $0.secondaryValue > 0 ? $0.secondaryValue : 50.0 }
+        let freqs = circuit.components.compactMap { SourceWaveforms.fundamentalFrequency($0) }
         guard let slowest = freqs.min() else { return nil }
         return 5.0 / slowest
     }

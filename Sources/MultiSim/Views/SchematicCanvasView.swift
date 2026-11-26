@@ -668,6 +668,8 @@ public struct SchematicCanvasView: View {
             return "gm: \(comp.value) S"
         case .bjtNPN, .bjtPNP:
             return "β: \(Int(comp.secondaryValue > 0 ? comp.secondaryValue : 100))"
+        case .threePhaseWye, .threePhaseDelta:
+            return "3~ \(EngineeringFormatter.voltage(comp.value)) L-L\n\(EngineeringFormatter.units(comp.secondaryValue > 0 ? comp.secondaryValue : 50, "Hz"))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

@@ -99,6 +99,39 @@ enum SourceWaveforms {
         }
     }
 
+    // MARK: - Three-phase
+
+    /// Peak voltage of one winding: phase voltage √2·V_L/√3 for a wye, line voltage √2·V_L for a delta.
+    static func threePhasePeak(_ comp: CircuitComponent) -> Double {
+        let lineRMS = max(comp.value, 0)
+        return comp.kind == .threePhaseWye ? 2.0.squareRoot() * lineRMS / 3.0.squareRoot() : 2.0.squareRoot() * lineRMS
+    }
+
+    /// Winding angles in degrees: A (or AB) at the set angle, then -120° and +120° (positive sequence).
+    static func threePhaseAngles(_ comp: CircuitComponent) -> [Double] {
+        let p = comp.param("phase")
+        return [p, p - 120, p + 120]
+    }
+
+    /// Instantaneous voltage of winding `phase` (0 = A / AB, 1 = B / BC, 2 = C / CA).
+    static func threePhaseValue(_ comp: CircuitComponent, phase: Int, at t: Double) -> Double {
+        let f = frequency(comp, fallback: 50)
+        let ang = threePhaseAngles(comp)[phase] * .pi / 180
+        return threePhasePeak(comp) * sin(2 * .pi * f * t + ang)
+    }
+
+    /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.
+    static func fundamentalFrequency(_ comp: CircuitComponent) -> Double? {
+        switch comp.kind {
+        case .acVoltageSource, .threePhaseWye, .threePhaseDelta:
+            return frequency(comp, fallback: 50)
+        case .functionGenerator, .clockSource:
+            return frequency(comp, fallback: 1000)
+        default:
+            return nil
+        }
+    }
+
     /// Earliest waveform corner of this source strictly after `t`.
     static func nextBreakpoint(_ comp: CircuitComponent, after t: Double) -> Double? {
         if let p = pulse(for: comp) { return p.nextBreakpoint(after: t) }

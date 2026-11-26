@@ -156,6 +156,10 @@ public struct ComponentSymbolView: View {
             DependentSourceSymbol(isVoltageSource: true).stroke(symbolColor, lineWidth: lineWidth)
         case .vccs:
             DependentSourceSymbol(isVoltageSource: false).stroke(symbolColor, lineWidth: lineWidth)
+        case .threePhaseWye:
+            ThreePhaseSourceSymbol(isWye: true).stroke(symbolColor, lineWidth: lineWidth)
+        case .threePhaseDelta:
+            ThreePhaseSourceSymbol(isWye: false).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
@@ -841,6 +845,35 @@ public struct SchottkySymbol: Shape {
         path.addLine(to: CGPoint(x: 32, y: midY - 12))
         path.move(to: CGPoint(x: 38, y: midY + 12))
         path.addLine(to: CGPoint(x: 44, y: midY + 12))
+        return path
+    }
+}
+
+/// Three-phase generator: a circle with the winding connection drawn inside, lines A/B/C on the right.
+public struct ThreePhaseSourceSymbol: Shape {
+    public let isWye: Bool
+
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let c = CGPoint(x: 30, y: 30)
+        path.addEllipse(in: CGRect(x: c.x - 17, y: c.y - 17, width: 34, height: 34))
+        // Line leads
+        path.move(to: CGPoint(x: 60, y: 10)); path.addLine(to: CGPoint(x: 52, y: 10)); path.addLine(to: CGPoint(x: 42, y: 18))
+        path.move(to: CGPoint(x: 60, y: 30)); path.addLine(to: CGPoint(x: 47, y: 30))
+        path.move(to: CGPoint(x: 60, y: 50)); path.addLine(to: CGPoint(x: 52, y: 50)); path.addLine(to: CGPoint(x: 42, y: 42))
+        if isWye {
+            path.move(to: CGPoint(x: 0, y: 30)); path.addLine(to: CGPoint(x: 13, y: 30))
+            // Y: three arms from the star point
+            let star = CGPoint(x: 30, y: 31)
+            path.move(to: star); path.addLine(to: CGPoint(x: 30, y: 20))
+            path.move(to: star); path.addLine(to: CGPoint(x: 21, y: 37))
+            path.move(to: star); path.addLine(to: CGPoint(x: 39, y: 37))
+        } else {
+            path.move(to: CGPoint(x: 30, y: 20))
+            path.addLine(to: CGPoint(x: 20, y: 38))
+            path.addLine(to: CGPoint(x: 40, y: 38))
+            path.closeSubpath()
+        }
         return path
     }
 }

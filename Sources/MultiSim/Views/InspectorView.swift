@@ -66,6 +66,12 @@ public struct InspectorView: View {
                 measurementRow(title: "Current:", value: EngineeringFormatter.current(comp.runtimeCurrent))
                 measurementRow(title: "Power:", value: EngineeringFormatter.power(abs(comp.runtimeVoltageDrop * comp.runtimeCurrent)))
 
+                if (comp.kind == .threePhaseWye || comp.kind == .threePhaseDelta) && comp.runtimeState.count == 3 {
+                    ForEach(0..<3, id: \.self) { i in
+                        measurementRow(title: "Line \(["A", "B", "C"][i]) current:", value: EngineeringFormatter.current(comp.runtimeState[i]))
+                    }
+                }
+
                 if comp.kind == .galvanometer {
                     let deflection = MNASolver.galvanometerDeflection(of: comp)
                     VStack(alignment: .leading, spacing: 2) {
