@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:MultiSim}",
+            "name": "Debug MultiSim",
+            "target": "MultiSim",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug MultiSim"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:MultiSim}",
+            "name": "Release MultiSim",
+            "target": "MultiSim",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release MultiSim"
+        }
+    ]
+}
