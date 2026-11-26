@@ -172,6 +172,10 @@ extension ComponentKind {
                 ExtraParameter("outHigh", .linear("Output High:", "V", -1e6...1e6, slider: -24...24), default: 5),
                 ExtraParameter("outLow", .linear("Output Low:", "V", -1e6...1e6, slider: -24...24), default: -5),
             ]
+        case .slewRateBlock:
+            return [
+                ExtraParameter("fallRate", .log("Falling Slew Rate:", "V/s", 1e-6...1e12, slider: 1...1e7), default: 1e3),
+            ]
         default:
             return []
         }

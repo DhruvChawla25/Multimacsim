@@ -129,6 +129,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "V/V", range: -1e9...1e9, sliderRange: -100...100, isLogarithmic: false, usesESeries: false)
             case .hysteresisBlock:
                 return nil
+            case .slewRateBlock:
+                return ParameterSpec(label: label, unit: "V/s", range: 1e-6...1e12, sliderRange: 1...1e7, isLogarithmic: true, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }

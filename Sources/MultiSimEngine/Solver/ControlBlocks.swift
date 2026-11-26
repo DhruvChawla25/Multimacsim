@@ -34,6 +34,8 @@ public enum ControlBlocks {
     public static func label(_ kind: ComponentKind) -> String {
         switch kind {
         // <labels>
+        case .slewRateBlock:
+            return "SR"
         case .hysteresisBlock:
             return "hys"
         case .limiterBlock:
@@ -66,6 +68,15 @@ public enum ControlBlocks {
         let zero = [Double](repeating: 0, count: u.count)
         switch comp.kind {
         // <eval>
+        case .slewRateBlock:
+            // Output follows the input but moves at most SR·h per step (rising and falling rates separately).
+            let yPrev = comp.runtimeState.first ?? u[0]
+            guard h > 0 else { return Linearized(value: u[0], partials: [1]) }
+            let step = u[0] - yPrev
+            let up = comp.value * h, down = comp.param("fallRate") * h
+            if step > up { return Linearized(value: yPrev + up, partials: [0]) }
+            if step < -down { return Linearized(value: yPrev - down, partials: [0]) }
+            return Linearized(value: u[0], partials: [1])
         case .hysteresisBlock:
             // Schmitt trigger: goes high above the upper threshold, low below the lower one, otherwise holds.
             return Linearized(value: hysteresisLevel(comp, input: u[0]).value, partials: [0])
@@ -122,6 +133,8 @@ public enum ControlBlocks {
     static func accept(_ comp: CircuitComponent, inputs u: [Double], output y: Double, h: Double) {
         switch comp.kind {
         // <accept>
+        case .slewRateBlock:
+            comp.runtimeState = [y]
         case .hysteresisBlock:
             comp.runtimeState = [hysteresisLevel(comp, input: u[0]).high ? 1 : 0]
         case .differentiatorBlock:
@@ -139,6 +152,9 @@ public enum ControlBlocks {
     static func acGains(_ comp: CircuitComponent, omega: Double, op: [Double]?) -> [Complex]? {
         switch comp.kind {
         // <ac>
+        case .slewRateBlock:
+            guard op != nil else { return nil }
+            return [Complex(1)] // a small signal is never slew limited
         case .differentiatorBlock:
             // K·jω
             return [Complex(0, comp.value * omega)]

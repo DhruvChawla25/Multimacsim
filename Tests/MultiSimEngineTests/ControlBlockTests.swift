@@ -134,4 +134,19 @@ final class ControlBlockTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(risingSwitch), 0.021667, accuracy: 1.5e-4)
         XCTAssertEqual(Set([5.0, -5.0]).contains(last), true)
     }
+
+    func testSlewRateTurnsAStepIntoARamp() {
+        let bench = TestBench()
+        let p = bench.add(.pulseVoltage, "VP", value: 5)
+        p.parameters = ["v1": 0, "delay": 1e-3, "rise": 1e-9, "fall": 1e-9, "width": 10, "period": 0]
+        let sr = bench.add(.slewRateBlock, "A1", value: 1000) // 1 V/ms up
+        sr.parameters = ["fallRate": 1000]
+        bench.wire(p.pins[0], sr.pins[0]); bench.ground(p.pins[1])
+        let solver = bench.solver(dt: 1e-4)
+        var res = solver.step()
+        for _ in 1..<30 { res = solver.step() } // t = 3 ms: 2 ms after the step
+        XCTAssertEqual(bench.voltage(sr.pins[1], res), 2.0, accuracy: 1e-6)
+        for _ in 0..<40 { res = solver.step() } // reached the input and follows it
+        XCTAssertEqual(bench.voltage(sr.pins[1], res), 5.0, accuracy: 1e-9)
+    }
 }

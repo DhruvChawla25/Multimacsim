@@ -89,6 +89,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case differentiatorBlock = "Voltage Differentiator"
     case limiterBlock = "Voltage Limiter"
     case hysteresisBlock = "Voltage Hysteresis Block"
+    case slewRateBlock = "Voltage Slew Rate Block"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -180,6 +181,8 @@ extension ComponentKind {
             return .controlFunctionBlocks
         case .hysteresisBlock:
             return .controlFunctionBlocks
+        case .slewRateBlock:
+            return .controlFunctionBlocks
         case .probe:
             return .probes
         }
@@ -255,6 +258,7 @@ extension ComponentKind {
         case .differentiatorBlock: return "A"
         case .limiterBlock: return "A"
         case .hysteresisBlock: return "A"
+        case .slewRateBlock: return "A"
         case .probe: return "P"
         }
     }
@@ -337,6 +341,7 @@ extension ComponentKind {
         case .differentiatorBlock: return "Differentiator (d/dt)"
         case .limiterBlock: return "Limiter (clip)"
         case .hysteresisBlock: return "Hysteresis (Schmitt)"
+        case .slewRateBlock: return "Slew Rate Limiter"
         case .probe: return "Voltage Probe"
         }
     }
@@ -416,6 +421,7 @@ extension ComponentKind {
         case .differentiatorBlock: return "chart.line.downtrend.xyaxis"
         case .limiterBlock: return "rectangle.compress.vertical"
         case .hysteresisBlock: return "arrow.left.arrow.right.square"
+        case .slewRateBlock: return "speedometer"
         case .probe: return "pin"
         }
     }
@@ -621,6 +627,7 @@ extension ComponentKind {
         case .differentiatorBlock: return PartDefaults(value: 1e-3)
         case .limiterBlock: return PartDefaults(value: 1)
         case .hysteresisBlock: return PartDefaults()
+        case .slewRateBlock: return PartDefaults(value: 1e3)
         default: return PartDefaults()
         }
     }
@@ -677,6 +684,7 @@ extension ComponentKind {
         case .differentiatorBlock: return "Differentiator Gain K (s):"
         case .limiterBlock: return "Gain K:"
         case .hysteresisBlock: return "Value:"
+        case .slewRateBlock: return "Rising Slew Rate (V/s):"
         default: return "Value:"
         }
     }
