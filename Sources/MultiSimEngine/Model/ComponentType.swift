@@ -87,6 +87,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case summerBlock = "Voltage Summer"
     case integratorBlock = "Voltage Integrator"
     case differentiatorBlock = "Voltage Differentiator"
+    case limiterBlock = "Voltage Limiter"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -174,6 +175,8 @@ extension ComponentKind {
             return .controlFunctionBlocks
         case .differentiatorBlock:
             return .controlFunctionBlocks
+        case .limiterBlock:
+            return .controlFunctionBlocks
         case .probe:
             return .probes
         }
@@ -247,6 +250,7 @@ extension ComponentKind {
         case .summerBlock: return "A"
         case .integratorBlock: return "A"
         case .differentiatorBlock: return "A"
+        case .limiterBlock: return "A"
         case .probe: return "P"
         }
     }
@@ -327,6 +331,7 @@ extension ComponentKind {
         case .summerBlock: return "Summer (A + B + C)"
         case .integratorBlock: return "Integrator (∫)"
         case .differentiatorBlock: return "Differentiator (d/dt)"
+        case .limiterBlock: return "Limiter (clip)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -404,6 +409,7 @@ extension ComponentKind {
         case .summerBlock: return "sum"
         case .integratorBlock: return "sum"
         case .differentiatorBlock: return "chart.line.downtrend.xyaxis"
+        case .limiterBlock: return "rectangle.compress.vertical"
         case .probe: return "pin"
         }
     }
@@ -607,6 +613,7 @@ extension ComponentKind {
         case .summerBlock: return PartDefaults(value: 1)
         case .integratorBlock: return PartDefaults(value: 1000)
         case .differentiatorBlock: return PartDefaults(value: 1e-3)
+        case .limiterBlock: return PartDefaults(value: 1)
         default: return PartDefaults()
         }
     }
@@ -661,6 +668,7 @@ extension ComponentKind {
         case .summerBlock: return "Output Gain K:"
         case .integratorBlock: return "Integrator Gain K (1/s):"
         case .differentiatorBlock: return "Differentiator Gain K (s):"
+        case .limiterBlock: return "Gain K:"
         default: return "Value:"
         }
     }

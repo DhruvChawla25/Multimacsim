@@ -106,4 +106,14 @@ final class ControlBlockTests: XCTestCase {
         XCTAssertEqual(out.magnitude, 2 * .pi, accuracy: 1e-9)
         XCTAssertEqual(out.angleDegrees, 90, accuracy: 1e-9)
     }
+
+    func testLimiterClipsASine() {
+        let (bench, b, _, _) = block(.limiterBlock, value: 2, inputs: [3], params: ["upper": 4, "lower": -1],
+                                     source: .acVoltageSource, secondary: 50)
+        let solver = bench.solver(dt: 1e-4)
+        let v = (0..<200).map { _ in output(bench, b, solver.step()) }
+        XCTAssertEqual(v.max()!, 4, accuracy: 1e-9)
+        XCTAssertEqual(v.min()!, -1, accuracy: 1e-9)
+        XCTAssertEqual(v[9], 2 * 3 * sin(2 * .pi * 50 * 1e-3), accuracy: 1e-9) // unclipped region is K·u
+    }
 }

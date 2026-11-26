@@ -34,6 +34,8 @@ public enum ControlBlocks {
     public static func label(_ kind: ComponentKind) -> String {
         switch kind {
         // <labels>
+        case .limiterBlock:
+            return "lim"
         case .differentiatorBlock:
             return "d/dt"
         case .integratorBlock:
@@ -62,6 +64,10 @@ public enum ControlBlocks {
         let zero = [Double](repeating: 0, count: u.count)
         switch comp.kind {
         // <eval>
+        case .limiterBlock:
+            // V(out) = K·u clipped to [lower, upper]
+            let (y, inside) = clamp(comp.value * u[0], comp.param("lower"), comp.param("upper"))
+            return Linearized(value: y, partials: [inside ? comp.value : 0])
         case .differentiatorBlock:
             // y = K·du/dt, backward difference (y = K·(u − u_n)/h): trapezoidal differentiation would ring.
             guard h > 0, let uPrev = comp.runtimeState.first else { return Linearized(value: 0, partials: [0]) }
@@ -149,6 +155,9 @@ public enum ControlBlocks {
         let out = nodes.last ?? "0"
         switch comp.kind {
         // <spice>
+        case .limiterBlock:
+            let lo = min(comp.param("lower"), comp.param("upper")), hi = max(comp.param("lower"), comp.param("upper"))
+            return "B\(name) \(out) 0 V={min(max(\(comp.value)*\(ins[0]),\(lo)),\(hi))}"
         case .summerBlock:
             return "B\(name) \(out) 0 V={\(comp.value)*(\(comp.param("aGain"))*\(ins[0])+\(comp.param("bGain"))*\(ins[1])+\(comp.param("cGain"))*\(ins[2]))+\(comp.param("outOffset"))}"
         case .dividerBlock:

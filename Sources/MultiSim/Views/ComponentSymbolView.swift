@@ -226,6 +226,8 @@ public struct ComponentSymbolView: View {
             EmptyView()
         case .differentiatorBlock:
             EmptyView()
+        case .limiterBlock:
+            EmptyView()
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
