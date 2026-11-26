@@ -77,6 +77,8 @@ enum SourceWaveforms {
         case .clockSource:
             return .square(low: 0, high: comp.value, frequency: frequency(comp, fallback: 1000),
                            duty: comp.param("duty") / 100, delay: comp.param("delay"), edge: comp.param("edge"))
+        case .digitalClock:
+            return .square(low: 0, high: comp.value, frequency: frequency(comp, fallback: 100), duty: comp.param("duty") / 100)
         case .clockCurrentSource:
             return .square(low: 0, high: comp.value, frequency: frequency(comp, fallback: 1000),
                            duty: comp.param("duty") / 100, edge: comp.param("edge"))
@@ -129,6 +131,8 @@ enum SourceWaveforms {
             return pwl(comp, at: t)
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
+        case .digitalClock:
+            return pulse(for: comp)?.value(at: t) ?? 0
         case .acVoltageSource:
             return comp.value * sin(2.0 * .pi * frequency(comp, fallback: 60) * t)
         case .functionGenerator:
@@ -367,6 +371,8 @@ enum SourceWaveforms {
             return frequency(comp, fallback: 50)
         case .functionGenerator, .clockSource:
             return frequency(comp, fallback: 1000)
+        case .digitalClock:
+            return frequency(comp, fallback: 100)
         default:
             return nil
         }

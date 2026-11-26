@@ -135,6 +135,8 @@ extension ComponentKind {
                 return nil
             case .transferFunctionBlock:
                 return nil
+            case .digitalClock:
+                return ParameterSpec(label: label, unit: "V", range: 0...30, sliderRange: 1...15, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }
@@ -175,6 +177,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "Hz", range: 1e-3...1e6, sliderRange: 1...1e4, isLogarithmic: true, usesESeries: true)
             case .vcoSine, .vcoSquare, .vcoTriangle:
                 return ParameterSpec(label: label, unit: "Hz", range: 0...1e6, sliderRange: 1...1e4, isLogarithmic: true, usesESeries: true)
+            case .digitalClock:
+                return ParameterSpec(label: label, unit: "Hz", range: 1e-3...1e7, sliderRange: 0.1...1e4, isLogarithmic: true, usesESeries: true)
             case .bjtNPN, .bjtPNP:
                 return ParameterSpec(label: label, unit: "", range: 1...1000, sliderRange: 20...500, isLogarithmic: true, usesESeries: false)
             default:

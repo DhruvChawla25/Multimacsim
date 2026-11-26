@@ -176,6 +176,8 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
             return 34
         case _ where kind.isControlBlock:
             return 32
+        case _ where kind.isDigitalSource:
+            return 26
         case .ground, .probe, .digitalGround, .vccRail, .vddRail, .veeRail, .vssRail:
             return 22
         default:
@@ -186,6 +188,7 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
     /// Generates standard pins with relative offsets (in canvas points) for each component type.
     public static func defaultPins(for kind: ComponentKind) -> [Pin] {
         if kind.isControlBlock { return ControlBlocks.pins(for: kind) }
+        if kind.isDigitalSource { return [Pin(index: 0, name: "OUT", relativeX: 30, relativeY: 0)] }
         // Every signal source stands upright: + (or the arrow tip, OUT) on top.
         if kind.isWaveformVoltageSource {
             return [

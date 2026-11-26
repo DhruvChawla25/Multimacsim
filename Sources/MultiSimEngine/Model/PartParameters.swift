@@ -176,6 +176,8 @@ extension ComponentKind {
             return [
                 ExtraParameter("fallRate", .log("Falling Slew Rate:", "V/s", 1e-6...1e12, slider: 1...1e7), default: 1e3),
             ]
+        case .digitalClock:
+            return [ExtraParameter("duty", .linear("Duty Cycle:", "%", 1...99), default: 50)]
         default:
             return []
         }

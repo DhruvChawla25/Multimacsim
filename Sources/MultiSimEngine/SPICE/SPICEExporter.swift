@@ -275,6 +275,10 @@ public final class SPICEExporter {
                     lines.append("* \(name) (\(comp.kind.rawValue)) is simulated by the MultiSim engine; no SPICE primitive emitted")
                 }
 
+            case .digitalClock:
+                if let p = SourceWaveforms.pulse(for: comp) {
+                    lines.append("\(name) \(node(0)) 0 PULSE(\(p.v1) \(p.v2) \(p.delay) \(p.rise) \(p.fall) \(p.width) \(p.period))")
+                }
             default:
                 // Signal sources describe themselves (SIN, PULSE, PWL, EXP, SFFM ...).
                 if let spec = SourceWaveforms.spiceSpec(comp) {

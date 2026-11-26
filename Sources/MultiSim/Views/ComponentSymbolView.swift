@@ -236,6 +236,8 @@ public struct ComponentSymbolView: View {
             EmptyView()
         case .transferFunctionBlock:
             EmptyView()
+        case .digitalClock:
+            DigitalSourceSymbol(glyph: .square).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
@@ -1146,6 +1148,21 @@ public struct BlockSymbol: Shape {
             path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: 12, y: y))
         }
         path.move(to: CGPoint(x: 48, y: 30)); path.addLine(to: CGPoint(x: 60, y: 30))
+        return path
+    }
+}
+
+/// Digital source: a small box with the output lead on the right; a glyph (clock) or a logic digit inside.
+public struct DigitalSourceSymbol: Shape {
+    public var glyph: SourceGlyph? = nil
+
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.addRect(CGRect(x: 8, y: 16, width: 34, height: 28))
+        path.move(to: CGPoint(x: 42, y: 30)); path.addLine(to: CGPoint(x: 60, y: 30))
+        if let glyph {
+            path.addPath(SignalSourceSymbol(glyph: glyph).glyphPath(center: CGPoint(x: 25, y: 30), scale: 1.0))
+        }
         return path
     }
 }

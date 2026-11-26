@@ -316,6 +316,9 @@ public enum ACSteadyStateAnalyzer {
                 // Pushed out of OUT+, as in the transient solver.
                 sys.transadmittance(from: node(1), to: node(0), cp: node(2), cm: node(3), Complex(comp.value))
                 transconductances[comp.id] = (Complex(-comp.value), node(2), node(3))
+            case _ where comp.kind.isDigitalSource:
+                if comp.kind == .digitalClock && !smallSignal { return .failure(.unsupportedPart(comp.designator)) }
+                sys.voltageSource(k, plus: node(0), minus: 0, .zero)
             case _ where comp.kind.isControlBlock:
                 let inputs = Array(n.dropLast())
                 guard let gains = ControlBlocks.acGains(comp, omega: omega, op: smallSignal ? inputs.map(opVoltage) : nil) else {
@@ -473,6 +476,8 @@ public enum ACSteadyStateAnalyzer {
         case .vcvs, .opAmp, .cccs:
             return 1
         case _ where comp.kind.isControlBlock:
+            return 1
+        case _ where comp.kind.isDigitalSource:
             return 1
         case .ccvs:
             return 2

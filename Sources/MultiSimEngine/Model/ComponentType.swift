@@ -92,6 +92,8 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case slewRateBlock = "Voltage Slew Rate Block"
     case polynomialBlock = "Polynomial Voltage Block"
     case transferFunctionBlock = "Transfer Function Block"
+    // Digital sources (v6): one output terminal, logic levels against (digital) ground
+    case digitalClock = "Digital Clock"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -189,6 +191,8 @@ extension ComponentKind {
             return .controlFunctionBlocks
         case .transferFunctionBlock:
             return .controlFunctionBlocks
+        case .digitalClock:
+            return .digitalSources
         case .probe:
             return .probes
         }
@@ -267,6 +271,7 @@ extension ComponentKind {
         case .slewRateBlock: return "A"
         case .polynomialBlock: return "A"
         case .transferFunctionBlock: return "A"
+        case .digitalClock: return "U_CLK"
         case .probe: return "P"
         }
     }
@@ -352,6 +357,7 @@ extension ComponentKind {
         case .slewRateBlock: return "Slew Rate Limiter"
         case .polynomialBlock: return "Polynomial P(x)"
         case .transferFunctionBlock: return "Transfer Function H(s)"
+        case .digitalClock: return "Digital Clock"
         case .probe: return "Voltage Probe"
         }
     }
@@ -434,6 +440,7 @@ extension ComponentKind {
         case .slewRateBlock: return "speedometer"
         case .polynomialBlock: return "function"
         case .transferFunctionBlock: return "function"
+        case .digitalClock: return "clock.badge"
         case .probe: return "pin"
         }
     }
@@ -531,6 +538,9 @@ extension ComponentKind {
 
     /// Control function blocks: ideal inputs, ideal voltage output to ground.
     public var isControlBlock: Bool { category == .controlFunctionBlocks }
+
+    /// One-terminal logic sources driving their output against ground (0 V / high level).
+    public var isDigitalSource: Bool { category == .digitalSources }
 
     /// Voltage-controlled sine / square / triangle oscillators.
     public var isVoltageControlledOscillator: Bool {
@@ -642,6 +652,7 @@ extension ComponentKind {
         case .slewRateBlock: return PartDefaults(value: 1e3)
         case .polynomialBlock: return PartDefaults()
         case .transferFunctionBlock: return PartDefaults()
+        case .digitalClock: return PartDefaults(value: 5, secondaryValue: 100)
         default: return PartDefaults()
         }
     }
@@ -701,6 +712,7 @@ extension ComponentKind {
         case .slewRateBlock: return "Rising Slew Rate (V/s):"
         case .polynomialBlock: return "Value:"
         case .transferFunctionBlock: return "Value:"
+        case .digitalClock: return "Logic High Level (V):"
         default: return "Value:"
         }
     }
@@ -716,6 +728,7 @@ extension ComponentKind {
         case .wattmeter: return "Pressure-Coil Resistance (Ω):"
         case .zenerDiode: return "Zener Breakdown (V):"
         case .bjtNPN, .bjtPNP: return "Current Gain (β / hFE):"
+        case .digitalClock: return "Clock Frequency (Hz):"
         case .vcoSine, .vcoSquare, .vcoTriangle: return "Frequency at 0 V Control (Hz):"
         case .fmCurrentSource: return "Carrier Frequency (Hz):"
         case .clockCurrentSource: return "Frequency (Hz):"

@@ -439,6 +439,8 @@ public final class MNASolver {
             return 1
         case _ where comp.kind.isControlBlock:
             return 1
+        case _ where comp.kind.isDigitalSource:
+            return 1
         case _ where comp.kind.isWaveformVoltageSource:
             return 1
         case .threePhaseWye:
@@ -567,6 +569,10 @@ public final class MNASolver {
 
         case _ where comp.kind.isWaveformVoltageSource:
             sys.voltageSource(k, plus: node(0), minus: node(1), value: ctx.sourceScale * SourceWaveforms.value(comp, at: ctx.time))
+
+        case _ where comp.kind.isDigitalSource:
+            // Ideal logic driver from the output pin to ground.
+            sys.voltageSource(k, plus: node(0), minus: 0, value: ctx.sourceScale * SourceWaveforms.value(comp, at: ctx.time))
 
         case _ where comp.kind.isControlBlock:
             // V(out) - Σ ∂f/∂u_i · u_i = f(u0) - Σ ∂f/∂u_i · u0_i
@@ -1113,6 +1119,11 @@ public final class MNASolver {
 
             case _ where comp.kind.isWaveformCurrentSource:
                 comp.runtimeCurrent = SourceWaveforms.value(comp, at: currentTime)
+
+            case _ where comp.kind.isDigitalSource:
+                comp.runtimeVoltageDrop = v(0)
+                comp.runtimeReading = v(0) > 2.5 ? 1 : 0
+                if let k = auxStart[comp.id], totalNodes + k < x.count { comp.runtimeCurrent = -x[totalNodes + k] }
 
             case _ where comp.kind.isControlBlock:
                 let u = (0..<max(n.count - 1, 0)).map { v($0) }
