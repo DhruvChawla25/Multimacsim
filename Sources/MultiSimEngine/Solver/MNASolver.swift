@@ -27,6 +27,13 @@ public final class MNASolver {
     /// True until the first step and right after a source discontinuity: that step uses backward Euler.
     public private(set) var needsBackwardEulerStep = true
     private var shortenNextStep = false
+    /// Subdivide each step so the trapezoidal local truncation error stays within tolerance.
+    public var adaptiveTimestep = false
+    /// SPICE TRTOL: how far the LTE estimate may exceed reltol before a step is rejected.
+    public var truncationErrorFactor = 7.0
+    /// Current internal step when `adaptiveTimestep` is on.
+    public private(set) var adaptiveStep: Double = 0
+    private var lteHistory: [(Double, [Double])] = []
     /// Homotopy used by the most recent hard solve (shown by the diagnostics sheet).
     public private(set) var lastConvergenceAid: ConvergenceAid = .none
     /// Newton convergence criteria (SPICE defaults).
@@ -72,6 +79,8 @@ public final class MNASolver {
         solution = []
         needsBackwardEulerStep = true
         shortenNextStep = false
+        lteHistory.removeAll()
+        adaptiveStep = 0
         for comp in circuit.components {
             comp.runtimeVoltageDrop = 0.0
             comp.runtimeCurrent = 0.0
@@ -105,22 +114,32 @@ public final class MNASolver {
         var iterations = 0
         var allConverged = true
         var substeps = 0
-        while currentTime < tEnd - minStep && substeps < 256 {
+        // Start small after a reset or a corner (no history to estimate the error yet) and let it grow.
+        if adaptiveStep <= 0 { adaptiveStep = h * Self.adaptiveStartFraction }
+        adaptiveStep = min(adaptiveStep, h)
+        let maxSubsteps = adaptiveTimestep ? 20_000 : 256
+        while currentTime < tEnd - minStep && substeps < maxSubsteps {
             substeps += 1
             var target = tEnd
+            if adaptiveTimestep { target = min(tEnd, currentTime + adaptiveStep) }
             // Just after a corner: a short backward-Euler step, so neither rule smears the edge.
-            if shortenNextStep { target = min(tEnd, currentTime + max(h * Self.postBreakpointFraction, minStep)) }
+            if shortenNextStep { target = min(target, currentTime + max(h * Self.postBreakpointFraction, minStep)) }
             var landsOnBreakpoint = false
             if let bp = nextBreakpoint(after: currentTime + minStep), bp < target + minStep {
                 target = bp > tEnd - minStep ? tEnd : bp
                 landsOnBreakpoint = true
             }
-            last = advance(to: target)
+            last = advance(to: target, minAdaptiveStep: h * 1e-4)
             iterations += last.iterations
+            if last.rejected { continue } // local truncation error too large: retry with the smaller step
             allConverged = allConverged && last.converged
             if last.singular { break }
             shortenNextStep = landsOnBreakpoint
-            if landsOnBreakpoint { needsBackwardEulerStep = true }
+            if landsOnBreakpoint {
+                needsBackwardEulerStep = true
+                lteHistory.removeAll() // divided differences across a corner mean nothing
+                adaptiveStep = h * Self.adaptiveStartFraction
+            }
         }
         currentTime = tEnd
         updateWireCurrents()
@@ -134,6 +153,9 @@ public final class MNASolver {
         )
     }
 
+    /// First adaptive sub-step after a reset or corner, as a fraction of the step.
+    static let adaptiveStartFraction = 1.0 / 32.0
+
     /// How many times a sub-step may be halved when Newton fails before falling back to gmin stepping.
     static let maxStepCuts = 5
 
@@ -145,10 +167,35 @@ public final class MNASolver {
         var converged: Bool
         var singular: Bool
         var iterations: Int
+        /// The solve was fine but its truncation error was not; nothing was accepted.
+        var rejected = false
+    }
+
+    // MARK: - Local truncation error
+
+    /// Trapezoidal LTE estimate: h³/12 · |x'''|, with x''' from the third divided difference
+    /// over the last three accepted points and the candidate. Returns (acceptable, suggested step).
+    private func truncationCheck(candidate x: [Double], at t: Double, h: Double) -> (Bool, Double) {
+        guard lteHistory.count >= 3 else { return (true, h) }
+        let pts = Array(lteHistory.suffix(3)) + [(t, Array(x.prefix(totalNodes)))]
+        let ts = pts.map { $0.0 }
+        guard ts[1] > ts[0], ts[2] > ts[1], ts[3] > ts[2] else { return (true, h) }
+        var worstRatio = 0.0
+        for i in 0..<totalNodes {
+            let xs = pts.map { i < $0.1.count ? $0.1[i] : 0 }
+            let d1 = (0..<3).map { (xs[$0 + 1] - xs[$0]) / (ts[$0 + 1] - ts[$0]) }
+            let d2 = (0..<2).map { (d1[$0 + 1] - d1[$0]) / (ts[$0 + 2] - ts[$0]) }
+            let d3 = (d2[1] - d2[0]) / (ts[3] - ts[0])
+            let lte = h * h * h / 12.0 * abs(6.0 * d3)
+            let tol = truncationErrorFactor * (tolerances.reltol * max(abs(xs[3]), abs(xs[2])) + tolerances.vntol)
+            worstRatio = max(worstRatio, lte / tol)
+        }
+        let factor = worstRatio > 0 ? 0.9 * pow(1.0 / worstRatio, 1.0 / 3.0) : 2.0
+        return (worstRatio <= 1.0, h * min(max(factor, 0.125), 2.0))
     }
 
     /// Solves the circuit at `target` and accepts it as the new state.
-    private func advance(to target: Double, depth: Int = 0) -> SubstepOutcome {
+    private func advance(to target: Double, depth: Int = 0, minAdaptiveStep: Double = 0) -> SubstepOutcome {
         let hs = target - currentTime
         let size = totalNodes + auxCount
         // Warm start from the last accepted point: Newton then only has to follow the change over one step.
@@ -170,8 +217,19 @@ public final class MNASolver {
             outcome = rescued
         }
 
+        if adaptiveTimestep && depth == 0 && outcome.converged && mode == .trapezoidal {
+            let (ok, suggested) = truncationCheck(candidate: outcome.x, at: target, h: hs)
+            if !ok && hs > minAdaptiveStep {
+                adaptiveStep = max(suggested, minAdaptiveStep)
+                return SubstepOutcome(voltages: [:], converged: true, singular: false, iterations: outcome.iterations, rejected: true)
+            }
+            adaptiveStep = max(suggested, minAdaptiveStep)
+        }
+
         isSolutionValid = !outcome.singular
         if !outcome.singular {
+            lteHistory.append((target, Array(outcome.x.prefix(totalNodes))))
+            if lteHistory.count > 3 { lteHistory.removeFirst() }
             solution = outcome.x
             needsBackwardEulerStep = false
         }

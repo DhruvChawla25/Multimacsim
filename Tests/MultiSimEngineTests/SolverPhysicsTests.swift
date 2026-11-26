@@ -123,3 +123,52 @@ final class BreakpointTests: XCTestCase {
         XCTAssertEqual(bench.voltage(c.pins[0], res), expected, accuracy: expected * 0.005)
     }
 }
+
+/// Optional LTE-controlled sub-stepping.
+final class AdaptiveStepTests: XCTestCase {
+    /// Worst deviation of a 1 V LC tank from cos(ωt) over `cycles`, at ~10 coarse steps per cycle.
+    private func tankError(adaptive: Bool, trtol: Double = 7, cycles: Int = 5) -> (error: Double, substepsUsed: Bool) {
+        let bench = TestBench()
+        let c = bench.add(.capacitor, "C1", value: 1e-6)
+        let l = bench.add(.inductor, "L1", value: 1e-3)
+        bench.wire(c.pins[0], l.pins[0])
+        bench.ground(c.pins[1], l.pins[1])
+        let omega = 1 / (1e-3 * 1e-6).squareRoot()
+        let period = 2 * Double.pi / omega
+        let dt = period / 10
+        let solver = bench.solver(dt: dt)
+        solver.adaptiveTimestep = adaptive
+        solver.truncationErrorFactor = trtol
+        c.runtimePrevVoltage = 1
+        var worst = 0.0
+        for k in 1...(10 * cycles) {
+            _ = solver.step()
+            worst = max(worst, abs(c.runtimeVoltageDrop - cos(omega * Double(k) * dt)))
+        }
+        return (worst, solver.adaptiveStep < dt * 0.99)
+    }
+
+    func testAdaptiveStepTracksTheTankFarBetter() {
+        let fixed = tankError(adaptive: false).error
+        let (adaptive, subdivided) = tankError(adaptive: true, trtol: 1)
+        XCTAssertTrue(subdivided)
+        XCTAssertGreaterThan(fixed, 0.3, "10 samples per cycle is too coarse on its own")
+        XCTAssertLessThan(adaptive, fixed / 5)
+        XCTAssertLessThan(adaptive, 0.15)
+    }
+
+    func testAdaptiveStepLeavesSlowCircuitsAlone() {
+        let bench = TestBench()
+        let v = bench.add(.dcVoltageSource, "V1", value: 10)
+        let r = bench.add(.resistor, "R1", value: 1000)
+        let c = bench.add(.capacitor, "C1", value: 1e-3) // tau = 1 s, steps of 0.1 ms
+        bench.wire(v.pins[0], r.pins[0]); bench.wire(r.pins[1], c.pins[0])
+        bench.ground(v.pins[1], c.pins[1])
+        let solver = bench.solver(dt: 1e-4)
+        solver.adaptiveTimestep = true
+        var res = solver.step()
+        for _ in 0..<99 { res = solver.step() }
+        XCTAssertEqual(bench.voltage(c.pins[0], res), 10 * (1 - exp(-0.01)), accuracy: 1e-5)
+        XCTAssertGreaterThanOrEqual(solver.adaptiveStep, 1e-4 * 0.999, "grows back to the full step")
+    }
+}

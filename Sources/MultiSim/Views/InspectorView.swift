@@ -356,6 +356,10 @@ public struct InspectorView: View {
                      : "First order and heavily damped: LC tanks lose energy every cycle. Switch back to compare.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                Toggle("Adaptive time step (LTE)", isOn: $viewModel.adaptiveTimestep)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .help("Subdivides each step until the trapezoidal truncation error is within tolerance")
             }
 
             VStack(alignment: .leading, spacing: 6) {

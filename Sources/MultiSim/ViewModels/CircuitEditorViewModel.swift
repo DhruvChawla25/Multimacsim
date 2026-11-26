@@ -59,6 +59,11 @@ public final class CircuitEditorViewModel: ObservableObject {
         didSet { solver.integrationMethod = integrationMethod }
     }
 
+    /// LTE-controlled sub-stepping inside every frame step (more accurate, more CPU on fast circuits).
+    @Published public var adaptiveTimestep: Bool = false {
+        didSet { solver.adaptiveTimestep = adaptiveTimestep }
+    }
+
     // Solver instance
     public private(set) var solver: MNASolver
     private var simulationTimer: AnyCancellable?
@@ -85,6 +90,7 @@ public final class CircuitEditorViewModel: ObservableObject {
     private func makeSolver(for circuit: Circuit) -> MNASolver {
         let s = MNASolver(circuit: circuit, timeStep: 1e-4)
         s.integrationMethod = integrationMethod
+        s.adaptiveTimestep = adaptiveTimestep
         return s
     }
 
