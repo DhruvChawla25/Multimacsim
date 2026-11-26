@@ -81,6 +81,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case vcoSine = "Voltage-Controlled Sine Wave"
     case vcoSquare = "Voltage-Controlled Square Wave"
     case vcoTriangle = "Voltage-Controlled Triangle Wave"
+    case gainBlock = "Voltage Gain Block"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -156,6 +157,8 @@ extension ComponentKind {
             return .controlledSources
         case .vcoSine, .vcoSquare, .vcoTriangle:
             return .controlledSources
+        case .gainBlock:
+            return .controlFunctionBlocks
         case .probe:
             return .probes
         }
@@ -223,6 +226,7 @@ extension ComponentKind {
         case .abmVoltage: return "B"
         case .abmCurrent: return "B"
         case .vcoSine, .vcoSquare, .vcoTriangle: return "VCO"
+        case .gainBlock: return "A"
         case .probe: return "P"
         }
     }
@@ -297,6 +301,7 @@ extension ComponentKind {
         case .vcoSine: return "Voltage-Controlled Sine"
         case .vcoSquare: return "Voltage-Controlled Square"
         case .vcoTriangle: return "Voltage-Controlled Triangle"
+        case .gainBlock: return "Gain Block (K)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -368,6 +373,7 @@ extension ComponentKind {
         case .vcoSine: return "waveform.path.ecg.rectangle"
         case .vcoSquare: return "square.on.circle"
         case .vcoTriangle: return "triangle.bottomhalf.filled"
+        case .gainBlock: return "multiply.circle"
         case .probe: return "pin"
         }
     }
@@ -462,6 +468,9 @@ extension ComponentKind {
             return false
         }
     }
+
+    /// Control function blocks: ideal inputs, ideal voltage output to ground.
+    public var isControlBlock: Bool { category == .controlFunctionBlocks }
 
     /// Voltage-controlled sine / square / triangle oscillators.
     public var isVoltageControlledOscillator: Bool {
@@ -562,6 +571,7 @@ extension ComponentKind {
         case .ccvs: return PartDefaults(value: 1000)
         case .cccs: return PartDefaults(value: 10)
         case .vcoSine, .vcoSquare, .vcoTriangle: return PartDefaults(value: 1, secondaryValue: 1000)
+        case .gainBlock: return PartDefaults(value: 2)
         default: return PartDefaults()
         }
     }
@@ -610,6 +620,7 @@ extension ComponentKind {
         case .ccvs: return "Transresistance r (V/A):"
         case .cccs: return "Current Gain β (A/A):"
         case .vcoSine, .vcoSquare, .vcoTriangle: return "Output Amplitude (Vp):"
+        case .gainBlock: return "Gain K:"
         default: return "Value:"
         }
     }

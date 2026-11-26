@@ -18,7 +18,7 @@ public struct ComponentSymbolView: View {
             if let letter = meterLetter {
                 // Meter faces are a circle plus a unit letter drawn on top of it.
                 Text(letter)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(.system(size: component.kind.isControlBlock ? (letter.count > 2 ? 9 : 13) : 15, weight: .bold, design: .rounded))
                     .foregroundStyle(symbolColor)
                     .offset(y: component.kind == .wattmeter ? -14 : 0)
                     .rotationEffect(.degrees(Double(component.rotation)))
@@ -46,6 +46,7 @@ public struct ComponentSymbolView: View {
 
     /// Letter shown inside an instrument face.
     private var meterLetter: String? {
+        if component.kind.isControlBlock { return ControlBlocks.label(component.kind) }
         switch component.kind {
         case .ammeter: return "A"
         case .voltmeter: return "V"
@@ -86,6 +87,15 @@ public struct ComponentSymbolView: View {
 
     @ViewBuilder
     private var symbolContent: some View {
+        if component.kind.isControlBlock {
+            BlockSymbol(inputs: ControlBlocks.inputNames(component.kind).count).stroke(symbolColor, lineWidth: lineWidth)
+        } else {
+            kindSymbol
+        }
+    }
+
+    @ViewBuilder
+    private var kindSymbol: some View {
         switch component.kind {
         case .resistor:
             ResistorSymbol().stroke(symbolColor, lineWidth: lineWidth)
@@ -204,6 +214,8 @@ public struct ComponentSymbolView: View {
             VCOSymbol(glyph: .triangle).stroke(symbolColor, lineWidth: lineWidth)
         case .vcoSine:
             VCOSymbol(glyph: .sine).stroke(symbolColor, lineWidth: lineWidth)
+        case .gainBlock:
+            EmptyView()
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
@@ -1098,6 +1110,22 @@ public struct VCOSymbol: Shape {
         // Waveform glyph inside
         let g = SignalSourceSymbol(glyph: glyph).glyphPath(center: CGPoint(x: midX, y: midY), scale: 0.6)
         path.addPath(g)
+        return path
+    }
+}
+
+/// Control function block: a box with its inputs on the left (20 pt pitch) and the output on the right.
+public struct BlockSymbol: Shape {
+    public let inputs: Int
+
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.addRect(CGRect(x: 12, y: 6, width: 36, height: 48))
+        let ys: [CGFloat] = inputs == 2 ? [10, 50] : (0..<inputs).map { 30 - CGFloat(inputs - 1) * 10 + CGFloat($0) * 20 }
+        for y in ys {
+            path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: 12, y: y))
+        }
+        path.move(to: CGPoint(x: 48, y: 30)); path.addLine(to: CGPoint(x: 60, y: 30))
         return path
     }
 }

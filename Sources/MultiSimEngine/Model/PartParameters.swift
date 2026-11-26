@@ -119,6 +119,11 @@ extension ComponentKind {
                 ExtraParameter("gain", .linear("Tuning Gain (Hz per control volt):", "Hz/V", -1e6...1e6, slider: -5000...5000), default: 500),
                 ExtraParameter("offset", .linear("Output DC Offset:", "V", -100...100, slider: -10...10), default: 0),
             ]
+        case .gainBlock:
+            return [
+                ExtraParameter("inOffset", .linear("Input Offset:", "V", -1000...1000, slider: -10...10), default: 0),
+                ExtraParameter("outOffset", .linear("Output Offset:", "V", -1000...1000, slider: -10...10), default: 0),
+            ]
         default:
             return []
         }
@@ -170,6 +175,8 @@ extension CircuitComponent {
         case .abmVoltage, .abmCurrent:
             if case .failure(let e) = Expression.parse(textValue) { return e.description }
             return nil
+        case _ where kind.isControlBlock:
+            return ControlBlocks.textError(self)
         default:
             return nil
         }

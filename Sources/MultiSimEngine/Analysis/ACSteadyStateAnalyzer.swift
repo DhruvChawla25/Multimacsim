@@ -74,7 +74,9 @@ public struct ACSteadyStateResult {
     public let threePhase: [ThreePhaseReport]
 
     /// Impedance seen by the reference source.
-    public var totalImpedance: Complex { referenceSource.voltage / sourceCurrent }
+    public var totalImpedance: Complex {
+        sourceCurrent.magnitude < 1e-15 ? Complex(.infinity, 0) : referenceSource.voltage / sourceCurrent
+    }
     /// Phase of the source current relative to the source voltage (negative = lagging).
     public var currentPhaseDegrees: Double { sourceCurrent.angleDegrees - referenceSource.voltage.angleDegrees }
     public var powerFactor: Double { cos(totalImpedance.angleDegrees * .pi / 180.0) }
@@ -314,6 +316,13 @@ public enum ACSteadyStateAnalyzer {
                 // Pushed out of OUT+, as in the transient solver.
                 sys.transadmittance(from: node(1), to: node(0), cp: node(2), cm: node(3), Complex(comp.value))
                 transconductances[comp.id] = (Complex(-comp.value), node(2), node(3))
+            case _ where comp.kind.isControlBlock:
+                let inputs = Array(n.dropLast())
+                guard let gains = ControlBlocks.acGains(comp, omega: omega, op: smallSignal ? inputs.map(opVoltage) : nil) else {
+                    return .failure(.unsupportedPart(comp.designator))
+                }
+                sys.branch(k, plus: n.last ?? 0, minus: 0)
+                for (i, inNode) in inputs.enumerated() where i < gains.count { sys.branchNode(k, node: inNode, -gains[i]) }
             case .ccvs:
                 sys.voltageSource(k, plus: node(2), minus: node(3), .zero)
                 sys.branch(k + 1, plus: node(0), minus: node(1))
@@ -422,7 +431,8 @@ public enum ACSteadyStateAnalyzer {
         var nodeMap: [Int: Complex] = [0: .zero]
         for k in 0..<nodeCount { nodeMap[k + 1] = x[k] }
 
-        guard let refPhasor = referencePhasor, referenceCurrent.magnitude > 1e-15 else { return .failure(.singular) }
+        // An unloaded reference source (e.g. driving only ideal block inputs) is fine: its current is just 0.
+        guard let refPhasor = referencePhasor else { return .failure(.singular) }
         return .success(ACSteadyStateResult(
             frequency: frequency,
             referenceSource: refPhasor,
@@ -461,6 +471,8 @@ public enum ACSteadyStateAnalyzer {
     static func auxRows(_ comp: CircuitComponent, smallSignal: Bool) -> Int {
         switch comp.kind {
         case .vcvs, .opAmp, .cccs:
+            return 1
+        case _ where comp.kind.isControlBlock:
             return 1
         case .ccvs:
             return 2

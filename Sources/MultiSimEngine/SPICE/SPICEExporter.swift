@@ -267,6 +267,14 @@ public final class SPICEExporter {
                 }
             case .vcoSine, .vcoSquare, .vcoTriangle:
                 lines.append("* \(name) (\(comp.kind.rawValue)) f = \(comp.secondaryValue) Hz + \(comp.param("gain")) Hz/V x V(\(node(2)),\(node(3))): simulated by the MultiSim engine")
+            case _ where comp.kind.isControlBlock:
+                let nodes = n
+                if let line = ControlBlocks.spice(comp, name: name, nodes: nodes) {
+                    lines.append(line)
+                } else {
+                    lines.append("* \(name) (\(comp.kind.rawValue)) is simulated by the MultiSim engine; no SPICE primitive emitted")
+                }
+
             default:
                 // Signal sources describe themselves (SIN, PULSE, PWL, EXP, SFFM ...).
                 if let spec = SourceWaveforms.spiceSpec(comp) {

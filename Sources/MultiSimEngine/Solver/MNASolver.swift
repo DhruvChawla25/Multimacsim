@@ -390,6 +390,8 @@ public final class MNASolver {
             return true
         case .vcoSine, .vcoSquare, .vcoTriangle:
             return true // the first step reads its control voltage from the iterate
+        case _ where kind.isControlBlock:
+            return true
         default:
             return kind.isLogicGate
         }
@@ -434,6 +436,8 @@ public final class MNASolver {
     static func auxiliaryRowCount(for comp: CircuitComponent) -> Int {
         switch comp.kind {
         case .opAmp, .vcvs, .inductor:
+            return 1
+        case _ where comp.kind.isControlBlock:
             return 1
         case _ where comp.kind.isWaveformVoltageSource:
             return 1
@@ -563,6 +567,19 @@ public final class MNASolver {
 
         case _ where comp.kind.isWaveformVoltageSource:
             sys.voltageSource(k, plus: node(0), minus: node(1), value: ctx.sourceScale * SourceWaveforms.value(comp, at: ctx.time))
+
+        case _ where comp.kind.isControlBlock:
+            // V(out) - Σ ∂f/∂u_i · u_i = f(u0) - Σ ∂f/∂u_i · u0_i
+            let inputs = Array(n.dropLast())
+            let u = inputs.map { ctx.v($0) }
+            let lin = ControlBlocks.evaluate(comp, inputs: u, h: ctx.mode == .dc ? 0 : ctx.h)
+            sys.branch(k, plus: n.last ?? 0, minus: 0)
+            var rhs = lin.value
+            for (i, inNode) in inputs.enumerated() where i < lin.partials.count {
+                sys.branchDependsOnNode(k, node: inNode, -lin.partials[i])
+                rhs -= lin.partials[i] * u[i]
+            }
+            sys.setBranchRHS(k, rhs)
 
         case .vcvs:
             // V(out+) - V(out-) = gain * (V(ctrl+) - V(ctrl-))
@@ -1096,6 +1113,14 @@ public final class MNASolver {
 
             case _ where comp.kind.isWaveformCurrentSource:
                 comp.runtimeCurrent = SourceWaveforms.value(comp, at: currentTime)
+
+            case _ where comp.kind.isControlBlock:
+                let u = (0..<max(n.count - 1, 0)).map { v($0) }
+                let y = n.isEmpty ? 0 : voltage(of: n[n.count - 1], in: voltages)
+                comp.runtimeVoltageDrop = y
+                comp.runtimeReading = y
+                if let k = auxStart[comp.id], totalNodes + k < x.count { comp.runtimeCurrent = -x[totalNodes + k] }
+                if mode != .dc { ControlBlocks.accept(comp, inputs: u, output: y, h: dt) }
 
             case _ where comp.kind.isWaveformVoltageSource || comp.kind == .vcvs:
                 // MNA's branch unknown flows into the + terminal; report the current delivered out of it.

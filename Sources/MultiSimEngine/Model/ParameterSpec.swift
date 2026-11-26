@@ -113,6 +113,8 @@ extension ComponentKind {
                 return nil
             case .vcoSine, .vcoSquare, .vcoTriangle:
                 return ParameterSpec(label: label, unit: "V", range: 0...1000, sliderRange: 0...50, isLogarithmic: false, usesESeries: false)
+            case .gainBlock:
+                return ParameterSpec(label: label, unit: "V/V", range: -1e9...1e9, sliderRange: -100...100, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }
