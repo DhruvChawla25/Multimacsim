@@ -703,7 +703,7 @@ public struct SchematicCanvasView: View {
         case .abmVoltage, .abmCurrent:
             let e = comp.textValue
             return (comp.kind == .abmVoltage ? "V = " : "I = ") + (e.count > 22 ? String(e.prefix(21)) + "…" : e)
-        case .vcoSine, .vcoSquare:
+        case .vcoSine, .vcoSquare, .vcoTriangle:
             return "VCO \(EngineeringFormatter.units(comp.value, "Vp"))\n\(EngineeringFormatter.units(comp.secondaryValue, "Hz")) + \(EngineeringFormatter.units(comp.param("gain"), "Hz/V"))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label

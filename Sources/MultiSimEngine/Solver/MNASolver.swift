@@ -388,7 +388,7 @@ public final class MNASolver {
         switch kind {
         case .diode, .led, .zenerDiode, .schottkyDiode, .bjtNPN, .bjtPNP, .opAmp, .abmVoltage, .abmCurrent:
             return true
-        case .vcoSine, .vcoSquare:
+        case .vcoSine, .vcoSquare, .vcoTriangle:
             return true // the first step reads its control voltage from the iterate
         default:
             return kind.isLogicGate
@@ -449,7 +449,7 @@ public final class MNASolver {
             return 1
         case .abmVoltage:
             return 1
-        case .vcoSine, .vcoSquare:
+        case .vcoSine, .vcoSquare, .vcoTriangle:
             return 1
         case .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer:
             return 1
@@ -598,7 +598,7 @@ public final class MNASolver {
             sys.currentControlledCurrent(from: node(1), to: node(0), auxColumn: k, comp.value)
         case .abmVoltage:
             stampBehavioural(comp, nodes: n, into: &sys, ctx: ctx, branch: k)
-        case .vcoSine, .vcoSquare:
+        case .vcoSine, .vcoSquare, .vcoTriangle:
             // Output follows the oscillator phase; the control voltage from the last step sets the frequency.
             sys.voltageSource(k, plus: node(0), minus: node(1), value: ctx.sourceScale * vcoValue(comp, nodes: n, ctx: ctx))
         case .opAmp:
@@ -1078,7 +1078,7 @@ public final class MNASolver {
             case .abmCurrent:
                 comp.runtimeCurrent = behaviouralValue(comp, x: x, time: currentTime)
                 comp.runtimeReading = comp.runtimeCurrent
-            case .vcoSine, .vcoSquare:
+            case .vcoSine, .vcoSquare, .vcoTriangle:
                 // Accept the step: advance the phase at the step's frequency, then re-tune from the new control voltage.
                 let (phase, freq) = vcoState(comp, nodes: n, voltages: voltages)
                 let advanced = (phase + freq * dt).truncatingRemainder(dividingBy: 1)

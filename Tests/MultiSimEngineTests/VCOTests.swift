@@ -48,3 +48,14 @@ final class VCOSquareTests: XCTestCase {
         XCTAssertEqual(Double(high) / Double(v.count), 0.5, accuracy: 0.01)
     }
 }
+
+final class VCOTriangleTests: XCTestCase {
+    func testTriangleSweepsWithTheControl() {
+        let t = VCOTests()
+        let (_, vco, v) = t.run(.vcoTriangle, control: -1, dt: 1e-5, steps: 1000, params: ["gain": 500]) // 500 Hz
+        XCTAssertEqual(VCOTests.risingCrossings(v), 5, accuracy: 1)
+        XCTAssertEqual(v.max()!, 2, accuracy: 1e-9) // peaks land exactly (breakpoints)
+        XCTAssertEqual(v[49], 2, accuracy: 1e-6) // t = 0.5 ms: a quarter cycle at 500 Hz is the peak
+        XCTAssertEqual(vco.runtimeReading, 500, accuracy: 1e-9)
+    }
+}

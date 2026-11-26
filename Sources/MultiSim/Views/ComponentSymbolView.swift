@@ -200,6 +200,8 @@ public struct ComponentSymbolView: View {
             BehaviouralSourceSymbol(isCurrent: true).stroke(symbolColor, lineWidth: lineWidth)
         case .vcoSquare:
             VCOSymbol(glyph: .square).stroke(symbolColor, lineWidth: lineWidth)
+        case .vcoTriangle:
+            VCOSymbol(glyph: .triangle).stroke(symbolColor, lineWidth: lineWidth)
         case .vcoSine:
             VCOSymbol(glyph: .sine).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
