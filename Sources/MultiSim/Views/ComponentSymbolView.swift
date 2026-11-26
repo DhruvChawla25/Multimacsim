@@ -47,7 +47,7 @@ public struct ComponentSymbolView: View {
     /// Letter shown inside an instrument face.
     private var meterLetter: String? {
         if component.kind.isControlBlock { return ControlBlocks.label(component.kind) }
-        if component.kind == .digitalConstant { return component.stateBool ? "1" : "0" }
+        if component.kind == .digitalConstant || component.kind == .interactiveDigitalConstant { return component.stateBool ? "1" : "0" }
         switch component.kind {
         case .ammeter: return "A"
         case .voltmeter: return "V"
@@ -241,6 +241,8 @@ public struct ComponentSymbolView: View {
             DigitalSourceSymbol(glyph: .square).stroke(symbolColor, lineWidth: lineWidth)
         case .digitalConstant:
             DigitalSourceSymbol().stroke(symbolColor, lineWidth: lineWidth)
+        case .interactiveDigitalConstant:
+            DigitalSourceSymbol(interactive: true).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
@@ -1158,6 +1160,8 @@ public struct BlockSymbol: Shape {
 /// Digital source: a small box with the output lead on the right; a glyph (clock) or a logic digit inside.
 public struct DigitalSourceSymbol: Shape {
     public var glyph: SourceGlyph? = nil
+    /// Clickable key: a push-button cap above the box.
+    public var interactive: Bool = false
 
     public func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -1165,6 +1169,10 @@ public struct DigitalSourceSymbol: Shape {
         path.move(to: CGPoint(x: 42, y: 30)); path.addLine(to: CGPoint(x: 60, y: 30))
         if let glyph {
             path.addPath(SignalSourceSymbol(glyph: glyph).glyphPath(center: CGPoint(x: 25, y: 30), scale: 1.0))
+        }
+        if interactive {
+            path.move(to: CGPoint(x: 25, y: 16)); path.addLine(to: CGPoint(x: 25, y: 10))
+            path.move(to: CGPoint(x: 17, y: 10)); path.addLine(to: CGPoint(x: 33, y: 10))
         }
         return path
     }

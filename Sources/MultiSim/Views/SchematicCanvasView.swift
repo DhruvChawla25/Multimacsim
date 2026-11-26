@@ -287,7 +287,7 @@ public struct SchematicCanvasView: View {
             if moved {
                 viewModel.finishMovingComponent(id: id)
             } else if let comp = viewModel.circuit.components.first(where: { $0.id == id }),
-                      comp.kind == .switchSPST {
+                      comp.kind.togglesOnClick {
                 viewModel.toggleSwitch(componentId: id)
             }
 
@@ -731,6 +731,8 @@ public struct SchematicCanvasView: View {
             return "CLK \(EngineeringFormatter.units(comp.secondaryValue, "Hz"))"
         case .digitalConstant:
             return "LOGIC \(comp.stateBool ? 1 : 0)"
+        case .interactiveDigitalConstant:
+            return "KEY = \(comp.stateBool ? 1 : 0) (click)"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

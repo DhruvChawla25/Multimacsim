@@ -279,7 +279,7 @@ public final class SPICEExporter {
                 if let p = SourceWaveforms.pulse(for: comp) {
                     lines.append("\(name) \(node(0)) 0 PULSE(\(p.v1) \(p.v2) \(p.delay) \(p.rise) \(p.fall) \(p.width) \(p.period))")
                 }
-            case .digitalConstant:
+            case .digitalConstant, .interactiveDigitalConstant:
                 lines.append("\(name) \(node(0)) 0 DC \(comp.stateBool ? comp.value : 0)")
             default:
                 // Signal sources describe themselves (SIN, PULSE, PWL, EXP, SFFM ...).

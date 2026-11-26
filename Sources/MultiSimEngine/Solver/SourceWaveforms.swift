@@ -133,7 +133,7 @@ enum SourceWaveforms {
             return comp.value
         case .digitalClock:
             return pulse(for: comp)?.value(at: t) ?? 0
-        case .digitalConstant:
+        case .digitalConstant, .interactiveDigitalConstant:
             return comp.stateBool ? comp.value : 0
         case .acVoltageSource:
             return comp.value * sin(2.0 * .pi * frequency(comp, fallback: 60) * t)

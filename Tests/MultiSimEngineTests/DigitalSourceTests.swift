@@ -35,4 +35,18 @@ final class DigitalSourceTests: XCTestCase {
             XCTAssertEqual(bench.voltage(ca.pins[0], res), a ? 5 : 0)
         }
     }
+
+    func testInteractiveConstantTogglesTheLogicLive() {
+        let bench = TestBench()
+        let key = bench.add(.interactiveDigitalConstant, "KEY1")
+        let buf = bench.add(.logicBuffer, "U1")
+        bench.wire(key.pins[0], buf.pins[0])
+        let solver = bench.solver()
+        XCTAssertEqual(bench.voltage(buf.pins[1], solver.step()), 0)
+        XCTAssertTrue(key.kind.togglesOnClick)
+        key.stateBool.toggle() // what a click on the canvas does
+        XCTAssertEqual(bench.voltage(buf.pins[1], solver.step()), 5)
+        key.stateBool.toggle()
+        XCTAssertEqual(bench.voltage(buf.pins[1], solver.step()), 0)
+    }
 }

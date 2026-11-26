@@ -139,6 +139,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "V", range: 0...30, sliderRange: 1...15, isLogarithmic: false, usesESeries: false)
             case .digitalConstant:
                 return ParameterSpec(label: label, unit: "V", range: 0...30, sliderRange: 1...15, isLogarithmic: false, usesESeries: false)
+            case .interactiveDigitalConstant:
+                return ParameterSpec(label: label, unit: "V", range: 0...30, sliderRange: 1...15, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }

@@ -95,6 +95,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     // Digital sources (v6): one output terminal, logic levels against (digital) ground
     case digitalClock = "Digital Clock"
     case digitalConstant = "Digital Constant"
+    case interactiveDigitalConstant = "Interactive Digital Constant"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -196,6 +197,8 @@ extension ComponentKind {
             return .digitalSources
         case .digitalConstant:
             return .digitalSources
+        case .interactiveDigitalConstant:
+            return .digitalSources
         case .probe:
             return .probes
         }
@@ -276,6 +279,7 @@ extension ComponentKind {
         case .transferFunctionBlock: return "A"
         case .digitalClock: return "U_CLK"
         case .digitalConstant: return "U_LOGIC"
+        case .interactiveDigitalConstant: return "U_KEY"
         case .probe: return "P"
         }
     }
@@ -363,6 +367,7 @@ extension ComponentKind {
         case .transferFunctionBlock: return "Transfer Function H(s)"
         case .digitalClock: return "Digital Clock"
         case .digitalConstant: return "Digital Constant (0 / 1)"
+        case .interactiveDigitalConstant: return "Interactive Digital Constant (click)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -447,6 +452,7 @@ extension ComponentKind {
         case .transferFunctionBlock: return "function"
         case .digitalClock: return "clock.badge"
         case .digitalConstant: return "01.square"
+        case .interactiveDigitalConstant: return "hand.tap"
         case .probe: return "pin"
         }
     }
@@ -547,6 +553,9 @@ extension ComponentKind {
 
     /// One-terminal logic sources driving their output against ground (0 V / high level).
     public var isDigitalSource: Bool { category == .digitalSources }
+
+    /// Parts the user flips by clicking them on the canvas.
+    public var togglesOnClick: Bool { self == .switchSPST || self == .interactiveDigitalConstant }
 
     /// Voltage-controlled sine / square / triangle oscillators.
     public var isVoltageControlledOscillator: Bool {
@@ -660,6 +669,7 @@ extension ComponentKind {
         case .transferFunctionBlock: return PartDefaults()
         case .digitalClock: return PartDefaults(value: 5, secondaryValue: 100)
         case .digitalConstant: return PartDefaults(value: 5, isClosed: true)
+        case .interactiveDigitalConstant: return PartDefaults(value: 5, isClosed: false)
         default: return PartDefaults()
         }
     }
@@ -721,6 +731,7 @@ extension ComponentKind {
         case .transferFunctionBlock: return "Value:"
         case .digitalClock: return "Logic High Level (V):"
         case .digitalConstant: return "Logic High Level (V):"
+        case .interactiveDigitalConstant: return "Logic High Level (V):"
         default: return "Value:"
         }
     }

@@ -439,7 +439,7 @@ public final class CircuitEditorViewModel: ObservableObject {
 
     public func toggleSwitch(componentId: UUID) {
         guard let comp = circuit.components.first(where: { $0.id == componentId }),
-              comp.kind == .switchSPST else { return }
+              comp.kind.togglesOnClick else { return }
         comp.stateBool.toggle()
         objectWillChange.send()
     }

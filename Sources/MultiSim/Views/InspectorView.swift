@@ -167,8 +167,8 @@ public struct InspectorView: View {
             .toggleStyle(.switch)
         }
 
-        if comp.kind == .digitalConstant {
-            Toggle("Logic level 1 (high)", isOn: Binding(
+        if comp.kind == .digitalConstant || comp.kind == .interactiveDigitalConstant {
+            Toggle(comp.kind == .interactiveDigitalConstant ? "Logic 1 (or click the key on the canvas)" : "Logic level 1 (high)", isOn: Binding(
                 get: { comp.stateBool },
                 set: { comp.stateBool = $0; viewModel.refreshAfterEdit() }
             ))
