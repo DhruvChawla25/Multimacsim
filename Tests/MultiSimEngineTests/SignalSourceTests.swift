@@ -29,4 +29,23 @@ final class SignalSourceTests: XCTestCase {
         XCTAssertEqual(v.map(abs).max()!, 3, accuracy: 0.02)
         XCTAssertTrue(SPICEExporter.export(circuit: Circuit(components: [am])).contains("AM("))
     }
+
+    func testFMInstantaneousFrequencySwings() {
+        let fm = make(.fmVoltage, value: 1, secondary: 1000, ["modIndex": 5, "modFreq": 20])
+        // Count zero crossings over a short window at the modulation peak and trough of instantaneous frequency.
+        func crossings(around t0: Double) -> Int {
+            var n = 0
+            var prev = SourceWaveforms.value(fm, at: t0)
+            for k in 1...2000 {
+                let v = SourceWaveforms.value(fm, at: t0 + Double(k) * 1e-6)
+                if (v >= 0) != (prev >= 0) { n += 1 }
+                prev = v
+            }
+            return n
+        }
+        // f_inst = fc + β·fm·cos(2π fm t): 1100 Hz at t = 0, 900 Hz at t = 25 ms.
+        XCTAssertGreaterThan(crossings(around: 0), crossings(around: 0.025))
+        XCTAssertEqual(SourceWaveforms.value(fm, at: 0.2e-3), sin(2 * .pi * 1000 * 0.2e-3 + 5 * sin(2 * .pi * 20 * 0.2e-3)), accuracy: 1e-12)
+        XCTAssertTrue(SPICEExporter.export(circuit: Circuit(components: [fm])).contains("SFFM("))
+    }
 }

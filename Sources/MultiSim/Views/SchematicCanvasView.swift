@@ -674,6 +674,8 @@ public struct SchematicCanvasView: View {
             return "\(comp.kind.designatorPrefix) \(EngineeringFormatter.voltage(comp.value))"
         case .amVoltage:
             return "AM \(EngineeringFormatter.units(comp.value, "Vp")) @ \(EngineeringFormatter.units(comp.secondaryValue, "Hz"))\nm \(String(format: "%.2g", comp.param("modIndex"))) @ \(EngineeringFormatter.units(comp.param("modFreq"), "Hz"))"
+        case .fmVoltage:
+            return "FM \(EngineeringFormatter.units(comp.value, "Vp")) @ \(EngineeringFormatter.units(comp.secondaryValue, "Hz"))\nβ \(String(format: "%.2g", comp.param("modIndex"))) @ \(EngineeringFormatter.units(comp.param("modFreq"), "Hz"))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

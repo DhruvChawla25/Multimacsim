@@ -92,6 +92,8 @@ enum SourceWaveforms {
             // Multisim AM: v = Vc·(1 + m·sin 2πf_m t)·sin 2πf_c t
             let fc = frequency(comp, fallback: 500), fm = comp.param("modFreq"), m = comp.param("modIndex")
             return comp.value * (1 + m * sin(2 * .pi * fm * t)) * sin(2 * .pi * fc * t)
+        case .fmVoltage:
+            return fm(comp, at: t)
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -127,6 +129,9 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .fmVoltage:
+            // SPICE SFFM(VO VA FC MDI FS)
+            return "SFFM(\(comp.param("offset")) \(comp.value) \(frequency(comp, fallback: 500)) \(comp.param("modIndex")) \(comp.param("modFreq")))"
         case .amVoltage:
             // ngspice AM(VA VO MF FC TD) = VA·(VO + sin MF)·sin FC
             let m = comp.param("modIndex"), fc = frequency(comp, fallback: 500)
@@ -137,8 +142,15 @@ enum SourceWaveforms {
         }
     }
 
+    /// Multisim / SPICE SFFM: v = V_off + V_a·sin(2πf_c t + β·sin 2πf_m t). Shared with the FM current source.
+    static func fm(_ comp: CircuitComponent, at t: Double) -> Double {
+        let fc = frequency(comp, fallback: 500)
+        return comp.param("offset") + comp.value * sin(2 * .pi * fc * t + comp.param("modIndex") * sin(2 * .pi * comp.param("modFreq") * t))
+    }
+
     /// Fastest frequency a source contains, for the "too few samples per cycle" warning.
     static func highestFrequency(_ comp: CircuitComponent) -> Double? {
+        if comp.kind == .fmVoltage { return frequency(comp, fallback: 500) + (comp.param("modIndex") + 1) * comp.param("modFreq") }
         if comp.kind == .amVoltage { return frequency(comp, fallback: 500) + comp.param("modFreq") }
         return fundamentalFrequency(comp)
     }
@@ -146,6 +158,8 @@ enum SourceWaveforms {
     /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.
     static func fundamentalFrequency(_ comp: CircuitComponent) -> Double? {
         switch comp.kind {
+        case .fmVoltage:
+            return min(frequency(comp, fallback: 500), max(comp.param("modFreq"), 1e-3))
         case .amVoltage:
             return min(frequency(comp, fallback: 500), max(comp.param("modFreq"), 1e-3))
         case .acVoltageSource, .threePhaseWye, .threePhaseDelta:

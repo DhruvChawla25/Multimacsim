@@ -48,6 +48,12 @@ extension ComponentKind {
                 ExtraParameter("modIndex", .linear("Modulation Index m:", "", 0...10, slider: 0...2), default: 0.5),
                 ExtraParameter("modFreq", .log("Modulating Frequency:", "Hz", 1e-3...1e6, slider: 0.1...1e4, eSeries: true), default: 50),
             ]
+        case .fmVoltage:
+            return [
+                ExtraParameter("modIndex", .linear("Modulation Index β:", "", 0...100, slider: 0...20), default: 5),
+                ExtraParameter("modFreq", .log("Modulating Frequency:", "Hz", 1e-3...1e6, slider: 0.1...1e4, eSeries: true), default: 50),
+                ExtraParameter("offset", .linear("DC Offset:", "V", -100...100, slider: -10...10), default: 0),
+            ]
         default:
             return []
         }

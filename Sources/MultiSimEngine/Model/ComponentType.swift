@@ -62,6 +62,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case vssRail = "VSS Supply"
     case digitalGround = "Digital Ground"
     case amVoltage = "AM Voltage Source"
+    case fmVoltage = "FM Voltage Source"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -108,6 +109,8 @@ extension ComponentKind {
         case .vccRail, .vddRail, .veeRail, .vssRail, .digitalGround:
             return .powerSources
         case .amVoltage:
+            return .signalVoltageSources
+        case .fmVoltage:
             return .signalVoltageSources
         case .probe:
             return .probes
@@ -160,6 +163,7 @@ extension ComponentKind {
         case .vssRail: return "VSS"
         case .digitalGround: return "DGND"
         case .amVoltage: return "V"
+        case .fmVoltage: return "V"
         case .probe: return "P"
         }
     }
@@ -216,6 +220,7 @@ extension ComponentKind {
         case .vssRail: return "VSS Rail"
         case .digitalGround: return "Digital Ground"
         case .amVoltage: return "AM Voltage"
+        case .fmVoltage: return "FM Voltage"
         case .probe: return "Voltage Probe"
         }
     }
@@ -269,6 +274,7 @@ extension ComponentKind {
         case .veeRail, .vssRail: return "arrow.down.to.line.compact"
         case .digitalGround: return "arrowtriangle.down"
         case .amVoltage: return "antenna.radiowaves.left.and.right"
+        case .fmVoltage: return "dot.radiowaves.left.and.right"
         case .probe: return "pin"
         }
     }
@@ -335,6 +341,7 @@ extension ComponentKind {
     /// Two-terminal independent voltage sources whose value comes from `SourceWaveforms` (+ on pin 0).
     public var isWaveformVoltageSource: Bool {
         switch self {
+        case .fmVoltage: return true
         case .amVoltage: return true
         case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator:
             return true
@@ -430,6 +437,7 @@ extension ComponentKind {
         case .veeRail: return PartDefaults(value: -5)
         case .vssRail: return PartDefaults(value: 0)
         case .amVoltage: return PartDefaults(value: 1, secondaryValue: 500)
+        case .fmVoltage: return PartDefaults(value: 1, secondaryValue: 500)
         default: return PartDefaults()
         }
     }
@@ -464,6 +472,7 @@ extension ComponentKind {
         case .threePhaseWye, .threePhaseDelta: return "Line Voltage (V RMS):"
         case .vccRail, .vddRail, .veeRail, .vssRail: return "Rail Voltage (V):"
         case .amVoltage: return "Carrier Amplitude (Vp):"
+        case .fmVoltage: return "Amplitude (Vp):"
         default: return "Value:"
         }
     }
@@ -479,6 +488,7 @@ extension ComponentKind {
         case .wattmeter: return "Pressure-Coil Resistance (Ω):"
         case .zenerDiode: return "Zener Breakdown (V):"
         case .bjtNPN, .bjtPNP: return "Current Gain (β / hFE):"
+        case .fmVoltage: return "Carrier Frequency (Hz):"
         case .amVoltage: return "Carrier Frequency (Hz):"
         case .threePhaseWye, .threePhaseDelta: return "Frequency (Hz):"
         default: return nil
