@@ -4,7 +4,7 @@ Each release adds one NI Multisim part group, plus the instruments and analyses 
 
 | Version | Part group | Instruments / analyses | Physics focus |
 |---|---|---|---|
-| **v6** | **1. Sources** (three-phase, AM/FM, PWL, exponential, noise, current sources, CCVS/CCCS, ABM, control blocks, digital sources, supply rails) | Function generator upgrade, Frequency counter, AC Sweep + Bode plotter | Trapezoidal integration, source breakpoints, Newton convergence, accuracy tests |
+| **v6 ✅ done** | **1. Sources** (three-phase, AM/FM, PWL, exponential, noise, current sources, CCVS/CCCS, ABM, control blocks, digital sources, supply rails) | Function generator upgrade, Frequency counter, AC Sweep + Bode plotter | Trapezoidal integration, source breakpoints, Newton convergence, accuracy tests |
 | v7 | 2. Basic (SPDT/DPDT/push/time-delay/controlled switches, relays, transformers, coupled inductors, Z-load, variable L, rated parts) | DC Sweep, Parameter Sweep | Mutual inductance, ideal-switch stamping |
 | v8 | 3. Diodes (photodiode, TVS, bridge rectifier, varactor, PIN, tunnel, SCR, DIAC, TRIAC) | IV Analyzer | Junction capacitance, thyristor latching |
 | v9 | 4. Transistors (MOSFETs, JFETs, Darlingtons, IGBT, UJT, power MOS) | IV Analyzer curves, Temperature Sweep | Level-1 MOSFET, Ebers-Moll + Early effect |
@@ -19,3 +19,7 @@ Each release adds one NI Multisim part group, plus the instruments and analyses 
 | v18 | 8–10. MCU, Advanced Peripherals, Misc Digital (8051/PIC, LCD, keypad) | — | Instruction-level MCU |
 | v19 | 15. RF | Network Analyzer | S-parameters |
 | v20 | 18–20. NI components, Connectors, Hierarchy/bus | Monte Carlo, Worst Case, Sensitivity, Pole-Zero, Transfer Function, Noise Figure | — |
+
+## Status
+
+- **v6 - done.** Sources group (power, signal voltage, signal current, controlled, control function blocks, digital), function generator upgrade, frequency counter, AC sweep + Bode plotter, trapezoidal integration, source breakpoints, robust Newton with gmin / source stepping, optional LTE time stepping, accuracy tests. Approximations: the delta source is two ideal windings (the third is implied), the polynomial block takes one input, the bipolar source is a ±V square wave, ABM and hysteresis / slew blocks only enter AC sweeps linearised at the operating point.

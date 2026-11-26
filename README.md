@@ -24,14 +24,18 @@ An open terminal is drawn in orange, so "what is not connected yet" is always vi
 
 ### Parts
 
-42 parts in six palette sections, with a search box on top:
+84 parts in twelve palette sections, with a search box on top. The six source sections follow NI Multisim's **Sources** group (new in v6):
 
-- **Measuring Instruments** - ammeter (in series), voltmeter (across), multimeter with a V / A / Ω mode switch, ohmmeter, wattmeter (current coil + pressure coil), galvanometer with a needle that deflects with the current.
-- **Sources & Ground** - DC supply, AC supply, DC current source, clock, function generator (sine / pulse / triangle), ground.
-- **Passives & Loads** - resistor, capacitor, electrolytic and trimmer capacitors, inductor, potentiometer (three terminals: A, B, wiper), rheostat, switch, lamp, fuse (blows on overcurrent, resettable), thermistor and photo-resistor that follow temperature and light.
-- **Semiconductors** - diode, LED, Zener, Schottky, NPN and PNP transistors.
-- **Analog & Logic ICs** - op-amp, VCVS, VCCS, AND / OR / NOT / NAND / NOR / XOR / XNOR / buffer.
-- **Probes & Test** - a test probe that reports the voltage of whatever net it is tied to.
+- **Measuring Instruments** - ammeter (in series), voltmeter (across), multimeter with a V / A / Ω mode switch, ohmmeter, wattmeter (current coil + pressure coil), galvanometer, **function generator** (sine / square / triangle, amplitude in Vp, duty cycle, DC offset), **frequency counter** (auto or manual trigger level, period, pulse width, duty, edge count) and **Bode plotter** (IN / OUT terminals).
+- **Power Sources** - ground, digital ground, DC supply, **VCC / VDD / VEE / VSS rails** (every symbol of one rail is the same global net, as in Multisim), **three-phase wye** (A, B, C, N) and **three-phase delta** sources set by line voltage (V RMS), frequency and phase angle.
+- **Signal Voltage Sources** - AC sine, clock (now with duty cycle, start delay, edge time), **AM**, **FM**, **exponential** (SPICE EXP), **piecewise linear** (editable point list, optional repeat), **pulse** (SPICE PULSE: V1, V2, delay, rise, fall, width, period), **bipolar** (±V square) and **white noise** (RMS, bandwidth, seed - reproducible).
+- **Signal Current Sources** - DC, **AC**, **clock / pulse**, **exponential**, **FM** and **PWL** current. Current leaves the terminal the arrow points to.
+- **Controlled Sources** - VCVS, VCCS, **CCVS** and **CCCS** (controlled by the current through a sense branch I+ → I-, exactly as SPICE does it), **ABM voltage** and **ABM current** (type an expression: `V(3)`, `V(R1)`, `V(a,b)`, `I(R1)`, `time`, `pi`, `+ - * / ^`, `sin cos tan exp log log10 abs sqrt min max limit` - a small safe parser, nothing is ever executed), **voltage-controlled sine / square / triangle oscillators** (f = f0 + gain × V(ctrl)).
+- **Control Function Blocks** - multiplier, divider, gain, summer, integrator, differentiator, limiter, hysteresis (Schmitt), slew-rate limiter, polynomial and **s-domain transfer function** H(s) = N(s)/D(s). Ideal inputs, ideal output to ground.
+- **Digital Sources** - digital clock, digital constant and **interactive digital constant** (click it on the canvas to flip 0 / 1), all driving the existing logic gates.
+- **Passives & Loads**, **Semiconductors**, **Analog & Logic ICs** (op-amp, AND / OR / NOT / NAND / NOR / XOR / XNOR / buffer) and **Probes & Test** as before.
+
+Every new part has a schematic symbol, inspector-editable settings (numbers, plus a validated text box for PWL points, expressions, polynomial coefficients and transfer functions) and a SPICE export line.
 
 The palette also holds the wiring tools (Select / Wire / Auto-Connect Facing Pins / Snap All to Grid), a short "how parts connect" note, and the lab examples.
 
@@ -39,7 +43,7 @@ Live readings appear on the part itself while the simulation runs, and the inspe
 
 ### Lab examples (pre-wired)
 
-The bottom of the left palette loads a complete, already-connected circuit: **Lab 1** AC Series RLC (130 V, 50 Hz: R 200 Ω, L 0.237 H, C 18 µF), and **Labs 2-4** the three cases of the AC parallel experiment (RL branch only, RC branch only, both branches - set by switches 3-4 and 5-6, with ammeters I, I1, I2 and a wattmeter; click a switch to change case live), and **Lab 5** the plain AC parallel RL ∥ RC circuit from the printout (R1 200 Ω + L 0.239 H, R2 200 Ω + C 18 µF). **The app opens on Lab 1**; `Cmd+N` starts from blank.
+The bottom of the left palette loads a complete, already-connected circuit: **Lab 1** AC Series RLC (130 V, 50 Hz: R 200 Ω, L 0.237 H, C 18 µF), and **Labs 2-4** the three cases of the AC parallel experiment (RL branch only, RC branch only, both branches - set by switches 3-4 and 5-6, with ammeters I, I1, I2 and a wattmeter; click a switch to change case live), and **Lab 5** the plain AC parallel RL ∥ RC circuit from the printout (R1 200 Ω + L 0.239 H, R2 200 Ω + C 18 µF). After the five lab sheets come the v6 examples: a **three-phase star load** (400 V, 50 Hz, line and neutral ammeters - balanced, the neutral reads 0 A), an **AM signal on the oscilloscope**, a **CCCS current mirror**, an **RC low-pass on the Bode plotter** and a **VCO read by the frequency counter**. **The app opens on Lab 1**; `Cmd+N` starts from blank.
 
 ### AC Analysis (`Shift+Cmd+Y`)
 
@@ -52,7 +56,22 @@ The **AC Analysis** toolbar button solves any linear R / L / C circuit with an A
 
 On a circuit with an AC source, ammeters and voltmeters read **RMS** and the wattmeter reads **average power**, like real lab meters (they settle within about half a second at 50 Hz). Each oscilloscope channel can now plot the probed part's current (`I`) as well as its voltage (`V`), with scales from 10 m to 100 per division.
 
-### Changing values (new)
+### Three-phase
+
+The AC Analysis sheet reports every three-phase source phase by phase: line currents and angles, phase and line voltages, neutral current, unbalance (max / min line current) and P, Q, S - so balanced and unbalanced star and delta loads can be checked against the hand calculation.
+
+### Bode plotter and AC sweep (`Shift+Cmd+B`)
+
+The **Bode Plotter** button runs an AC sweep (SPICE `.AC DEC`): the circuit is solved as phasors at log-spaced frequencies with every AC source driven at the sweep frequency, after diodes, transistors and non-linear blocks are linearised at the DC operating point. It plots magnitude (dB) and unwrapped phase against log frequency with a hover cursor and the -3 dB point. Input and output default to a Bode plotter part's IN / OUT terminals (or the AC source and the last R / L / C) and can be any part voltage or node.
+
+### Solver (v6)
+
+- **Trapezoidal integration** for capacitors and inductors (second order, keeps LC energy over hundreds of cycles), with a backward-Euler step at start-up and after every source corner so it never rings. Backward Euler stays selectable in the inspector's Solver section for comparison. Inductors carry their current as an MNA unknown.
+- **Source breakpoints**: every step splits itself at pulse / clock / PWL / exponential corners and predicted VCO edges, so edges land at their true time whatever the step size.
+- **Newton-Raphson** with SPICE tolerances (reltol 1e-3, vntol 1e-6, abstol 1e-12), pnjlim junction voltage limiting, gmin across junctions, warm starts, time-step cutting on failure, and a DC operating point (`.OP`) that falls back to gmin stepping and then source stepping.
+- **Optional adaptive time step**: the trapezoidal local truncation error (h³/12·|x‴|) decides how finely each frame step is subdivided (inspector switch; off by default to keep the live view cheap).
+
+### Changing values
 
 Select any part and edit its numbers in the right-hand inspector. Every number has the same four controls:
 
@@ -114,4 +133,4 @@ This folder is **v4**, the merge of the two older MultiSim folders (their code, 
 swift test
 ```
 
-51 engine tests: value editing (unit parser, E12 stepping, limits, live edits), MNA solver correctness, wiring geometry (orthogonality, snapping, taps, no doubled-back runs) and instrument behaviour (meter readings, ideal-meter loading, DMM modes, potentiometer divider, fuse blow/reset, sensors, SPICE export) and AC phasor analysis checked against the worked lab sheets.
+145 engine tests: value editing (unit parser, E12 stepping, limits, live edits), MNA solver correctness, wiring geometry, instrument behaviour, AC phasor analysis checked against the worked lab sheets, and for v6: every new source, controlled source, control block and digital source; the expression, PWL and transfer-function parsers; three-phase balanced / unbalanced / delta loads; frequency counter and AC sweep; the example circuits; and accuracy against closed-form answers (RC charge, RL rise, LC energy over 100 cycles, series RLC transient vs phasor sample by sample, neutral current of a balanced star load, Newton fallbacks, adaptive stepping).
