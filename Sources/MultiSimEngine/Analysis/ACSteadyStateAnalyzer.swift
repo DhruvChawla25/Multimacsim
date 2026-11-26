@@ -226,6 +226,7 @@ public enum ACSteadyStateAnalyzer {
         var auxStart: [UUID: Int] = [:]
         var auxCount = 0
         for comp in circuit.components {
+            if comp.kind.isSupplyRail && !circuit.isDrivingRail(comp) { continue }
             let k = auxRows(comp, smallSignal: smallSignal)
             guard k > 0 else { continue }
             auxStart[comp.id] = auxCount
@@ -246,8 +247,11 @@ public enum ACSteadyStateAnalyzer {
             func node(_ i: Int) -> Int { i < n.count ? n[i] : 0 }
             let k = auxStart[comp.id] ?? 0
             switch comp.kind {
-            case .ground, .probe:
+            case .ground, .probe, .digitalGround:
                 continue
+            case .vccRail, .vddRail, .veeRail, .vssRail:
+                // A DC rail is an AC short to ground.
+                if circuit.isDrivingRail(comp) { sys.voltageSource(k, plus: node(0), minus: 0, .zero) }
             case .dcVoltageSource, .acVoltageSource, .functionGenerator, .clockSource:
                 // DC carries no AC signal: a 0 V phasor (a short for AC).
                 if comp.kind == .clockSource && !smallSignal { return .failure(.unsupportedPart(comp.designator)) }
@@ -438,6 +442,8 @@ public enum ACSteadyStateAnalyzer {
             return 3
         case .threePhaseDelta:
             return 2
+        case .vccRail, .vddRail, .veeRail, .vssRail:
+            return 1
         default:
             return 0
         }

@@ -77,6 +77,10 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "S", range: -100...100, sliderRange: -1...1, isLogarithmic: false, usesESeries: false)
             case .threePhaseWye, .threePhaseDelta:
                 return ParameterSpec(label: label, unit: "V", range: 0...1e5, sliderRange: 0...1000, isLogarithmic: false, usesESeries: false)
+            case .vccRail, .vddRail, .veeRail, .vssRail:
+                return ParameterSpec(label: label, unit: "V", range: -1000...1000, sliderRange: -24...24, isLogarithmic: false, usesESeries: false)
+            case .digitalGround:
+                return nil
             case .bjtNPN, .bjtPNP:
                 return nil
             }

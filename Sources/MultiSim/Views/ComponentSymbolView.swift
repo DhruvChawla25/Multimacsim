@@ -160,6 +160,12 @@ public struct ComponentSymbolView: View {
             ThreePhaseSourceSymbol(isWye: true).stroke(symbolColor, lineWidth: lineWidth)
         case .threePhaseDelta:
             ThreePhaseSourceSymbol(isWye: false).stroke(symbolColor, lineWidth: lineWidth)
+        case .vccRail, .vddRail:
+            RailSymbol(pointsUp: true).stroke(symbolColor, lineWidth: lineWidth)
+        case .veeRail, .vssRail:
+            RailSymbol(pointsUp: false).stroke(symbolColor, lineWidth: lineWidth)
+        case .digitalGround:
+            DigitalGroundSymbol().stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
@@ -874,6 +880,40 @@ public struct ThreePhaseSourceSymbol: Shape {
             path.addLine(to: CGPoint(x: 40, y: 38))
             path.closeSubpath()
         }
+        return path
+    }
+}
+
+/// Supply rail: a bar on a stem (VCC/VDD above their pin, VEE/VSS below theirs).
+public struct RailSymbol: Shape {
+    public let pointsUp: Bool
+
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let x = rect.midX
+        if pointsUp {
+            path.move(to: CGPoint(x: x, y: 50)); path.addLine(to: CGPoint(x: x, y: 22))
+            path.move(to: CGPoint(x: x - 12, y: 22)); path.addLine(to: CGPoint(x: x + 12, y: 22))
+            path.move(to: CGPoint(x: x - 5, y: 30)); path.addLine(to: CGPoint(x: x, y: 24)); path.addLine(to: CGPoint(x: x + 5, y: 30))
+        } else {
+            path.move(to: CGPoint(x: x, y: 10)); path.addLine(to: CGPoint(x: x, y: 38))
+            path.move(to: CGPoint(x: x - 12, y: 38)); path.addLine(to: CGPoint(x: x + 12, y: 38))
+            path.move(to: CGPoint(x: x - 5, y: 30)); path.addLine(to: CGPoint(x: x, y: 36)); path.addLine(to: CGPoint(x: x + 5, y: 30))
+        }
+        return path
+    }
+}
+
+/// Digital ground: stem into an open triangle, the reference for logic parts.
+public struct DigitalGroundSymbol: Shape {
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let x = rect.midX
+        path.move(to: CGPoint(x: x, y: 10)); path.addLine(to: CGPoint(x: x, y: 30))
+        path.move(to: CGPoint(x: x - 12, y: 30))
+        path.addLine(to: CGPoint(x: x + 12, y: 30))
+        path.addLine(to: CGPoint(x: x, y: 44))
+        path.closeSubpath()
         return path
     }
 }

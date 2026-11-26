@@ -12,6 +12,7 @@ public final class SPICEExporter {
         lines.append("")
 
         var modelsToInclude = Set<String>()
+        var emittedRails = Set<ComponentKind>()
 
         for comp in circuit.components {
             let pins = comp.pins
@@ -239,6 +240,14 @@ public final class SPICEExporter {
                     lines.append("\(name)AB \(node(0)) \(node(1)) SIN(0 \(formatValue(peak)) \(f) 0 0 \(ang[0]))")
                     lines.append("\(name)BC \(node(1)) \(node(2)) SIN(0 \(formatValue(peak)) \(f) 0 0 \(ang[1]))")
                 }
+            case .vccRail, .vddRail, .veeRail, .vssRail:
+                // Every rail of one kind is a single global net; it is driven once.
+                if emittedRails.insert(comp.kind).inserted {
+                    lines.append("V\(comp.kind.designatorPrefix) \(node(0)) 0 DC \(comp.value)")
+                }
+
+            case .digitalGround:
+                break // node 0, like ground
             default:
                 break
             }

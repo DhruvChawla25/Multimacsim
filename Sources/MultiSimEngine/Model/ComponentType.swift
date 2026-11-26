@@ -56,6 +56,11 @@ public enum ComponentKind: String, Codable, CaseIterable {
     // Power sources (v6)
     case threePhaseWye = "Three-Phase Voltage Source (Wye)"
     case threePhaseDelta = "Three-Phase Voltage Source (Delta)"
+    case vccRail = "VCC Supply"
+    case vddRail = "VDD Supply"
+    case veeRail = "VEE Supply"
+    case vssRail = "VSS Supply"
+    case digitalGround = "Digital Ground"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -98,6 +103,8 @@ extension ComponentKind {
              .logicXOR, .logicXNOR, .logicBuffer:
             return .analogLogic
         case .threePhaseWye, .threePhaseDelta:
+            return .powerSources
+        case .vccRail, .vddRail, .veeRail, .vssRail, .digitalGround:
             return .powerSources
         case .probe:
             return .probes
@@ -144,6 +151,11 @@ extension ComponentKind {
         case .logicXNOR: return "U_XNOR"
         case .logicBuffer: return "U_BUF"
         case .threePhaseWye, .threePhaseDelta: return "V"
+        case .vccRail: return "VCC"
+        case .vddRail: return "VDD"
+        case .veeRail: return "VEE"
+        case .vssRail: return "VSS"
+        case .digitalGround: return "DGND"
         case .probe: return "P"
         }
     }
@@ -194,6 +206,11 @@ extension ComponentKind {
         case .logicBuffer: return "Buffer"
         case .threePhaseWye: return "3-Phase Wye (Star)"
         case .threePhaseDelta: return "3-Phase Delta"
+        case .vccRail: return "VCC Rail"
+        case .vddRail: return "VDD Rail"
+        case .veeRail: return "VEE Rail"
+        case .vssRail: return "VSS Rail"
+        case .digitalGround: return "Digital Ground"
         case .probe: return "Voltage Probe"
         }
     }
@@ -243,6 +260,9 @@ extension ComponentKind {
         case .logicBuffer: return "arrow.right.to.line"
         case .threePhaseWye: return "asterisk.circle"
         case .threePhaseDelta: return "triangle.circle"
+        case .vccRail, .vddRail: return "arrow.up.to.line"
+        case .veeRail, .vssRail: return "arrow.down.to.line.compact"
+        case .digitalGround: return "arrowtriangle.down"
         case .probe: return "pin"
         }
     }
@@ -306,6 +326,17 @@ extension ComponentKind {
         }
     }
 
+    /// VCC / VDD / VEE / VSS: one-terminal DC supplies to ground whose symbols share a global net.
+    public var isSupplyRail: Bool {
+        switch self {
+        case .vccRail, .vddRail, .veeRail, .vssRail: return true
+        default: return false
+        }
+    }
+
+    /// Parts that tie their terminal to node 0.
+    public var isGroundReference: Bool { self == .ground || self == .digitalGround }
+
     /// Digital gate parts.
     public var isLogicGate: Bool {
         switch self {
@@ -368,6 +399,9 @@ extension ComponentKind {
         case .wattmeter: return PartDefaults(value: 0.05, secondaryValue: 1e6)
         case .multimeter: return PartDefaults(value: Self.idealVoltmeterR, modeIndex: MeterMode.voltage.rawValue)
         case .threePhaseWye, .threePhaseDelta: return PartDefaults(value: 400, secondaryValue: 50)
+        case .vccRail, .vddRail: return PartDefaults(value: 5)
+        case .veeRail: return PartDefaults(value: -5)
+        case .vssRail: return PartDefaults(value: 0)
         default: return PartDefaults()
         }
     }
@@ -400,6 +434,7 @@ extension ComponentKind {
         case .vccs: return "Transconductance gm (S):"
         case .zenerDiode: return "Forward Drop Model (V):"
         case .threePhaseWye, .threePhaseDelta: return "Line Voltage (V RMS):"
+        case .vccRail, .vddRail, .veeRail, .vssRail: return "Rail Voltage (V):"
         default: return "Value:"
         }
     }

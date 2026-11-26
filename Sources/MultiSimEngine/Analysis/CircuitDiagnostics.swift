@@ -17,7 +17,7 @@ public final class CircuitDiagnostics {
         let (_, nodeCount) = circuit.resolveNodes()
 
         // 1. Check for Ground reference (Node 0)
-        let hasGround = circuit.components.contains { $0.kind == .ground }
+        let hasGround = circuit.components.contains { $0.kind.isGroundReference }
 
         // 2. Check for unconnected / floating pins
         var openPins: [(component: String, pin: String)] = []

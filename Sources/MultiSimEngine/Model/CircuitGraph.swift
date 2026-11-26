@@ -174,7 +174,7 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
         case .opAmp, .logicAND, .logicOR, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer,
              .vcvs, .vccs, .wattmeter, .bjtNPN, .bjtPNP, .threePhaseWye, .threePhaseDelta:
             return 34
-        case .ground, .probe:
+        case .ground, .probe, .digitalGround, .vccRail, .vddRail, .veeRail, .vssRail:
             return 22
         default:
             return 30
@@ -291,6 +291,12 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
                 Pin(index: 1, name: "B", relativeX: 30, relativeY: 0),
                 Pin(index: 2, name: "C", relativeX: 30, relativeY: 20)
             ]
+        case .vccRail, .vddRail:
+            // Rail bar on top, connection at the bottom.
+            return [Pin(index: 0, name: kind.designatorPrefix, relativeX: 0, relativeY: 20)]
+
+        case .veeRail, .vssRail, .digitalGround:
+            return [Pin(index: 0, name: kind.designatorPrefix, relativeX: 0, relativeY: -20)]
         case .logicNOT, .logicBuffer:
             // 1 input on left, 1 output on right
             return [
@@ -298,6 +304,14 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
                 Pin(index: 1, name: "OUT", relativeX: 30, relativeY: 0)
             ]
         }
+    }
+}
+
+extension Circuit {
+    /// The rail symbol that drives its kind's global net (the first one placed); the others only connect to it.
+    public func isDrivingRail(_ comp: CircuitComponent) -> Bool {
+        guard comp.kind.isSupplyRail else { return false }
+        return components.first { $0.kind == comp.kind }?.id == comp.id
     }
 }
 
@@ -393,9 +407,16 @@ public final class Circuit: Codable {
             union(wire.startPinId, wire.endPinId)
         }
 
+        // Supply rails are global, as in Multisim: every VCC symbol is the same net, and so on.
+        var firstRailPin: [ComponentKind: UUID] = [:]
+        for comp in components where comp.kind.isSupplyRail {
+            guard let pin = comp.pins.first else { continue }
+            if let first = firstRailPin[comp.kind] { union(first, pin.id) } else { firstRailPin[comp.kind] = pin.id }
+        }
+
         // Identify all Ground pins to ensure their root is mapped to Node 0
         var groundRoots = Set<UUID>()
-        for comp in components where comp.kind == .ground {
+        for comp in components where comp.kind.isGroundReference {
             if let pin = comp.pins.first {
                 groundRoots.insert(find(pin.id))
             }

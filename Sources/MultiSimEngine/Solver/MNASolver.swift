@@ -417,6 +417,8 @@ public final class MNASolver {
         var next = 0
         var map: [UUID: Int] = [:]
         for comp in circuit.components {
+            // Only one symbol per rail kind drives the shared net; a second ideal source in parallel would be singular.
+            if comp.kind.isSupplyRail && !circuit.isDrivingRail(comp) { continue }
             let count = Self.auxiliaryRowCount(for: comp)
             guard count > 0 else { continue }
             map[comp.id] = next
@@ -435,6 +437,8 @@ public final class MNASolver {
             return 3
         case .threePhaseDelta:
             return 2
+        case .vccRail, .vddRail, .veeRail, .vssRail:
+            return 1
         case .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer:
             return 1
         default:
@@ -565,6 +569,8 @@ public final class MNASolver {
                 sys.voltageSource(k + i, plus: node(i), minus: node(i + 1),
                                   value: ctx.sourceScale * SourceWaveforms.threePhaseValue(comp, phase: i, at: ctx.time))
             }
+        case .vccRail, .vddRail, .veeRail, .vssRail:
+            sys.voltageSource(k, plus: node(0), minus: 0, value: ctx.sourceScale * comp.value)
         case .opAmp:
             // Macro-model: output driven against ground with open-loop gain A = 1e5, clipped at the rails.
             // In the linear region the gain is stamped as a VCVS so Newton sees the true slope.
@@ -890,6 +896,13 @@ public final class MNASolver {
                         comp.runtimeState = [-a, a - b, b]
                     }
                     comp.runtimeCurrent = comp.runtimeState[0]
+                }
+            case .vccRail, .vddRail, .veeRail, .vssRail:
+                comp.runtimeVoltageDrop = v(0)
+                if let k = auxStart[comp.id], totalNodes + k < x.count {
+                    comp.runtimeCurrent = -x[totalNodes + k]
+                } else {
+                    comp.runtimeCurrent = 0
                 }
             case .ohmmeter:
                 let test = ohmmeterTestCurrent(for: comp)
