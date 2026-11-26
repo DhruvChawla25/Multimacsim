@@ -290,6 +290,29 @@ enum SourceWaveforms {
         return (-2 * Foundation.log(u1)).squareRoot() * cos(2 * .pi * u2)
     }
 
+    // MARK: - Voltage-controlled oscillators
+
+    /// Unit-amplitude oscillator output at `phase` (cycles). All shapes rise through zero at phase 0.
+    static func vcoShape(_ kind: ComponentKind, phase p: Double, frequency f: Double) -> Double {
+        switch kind {
+        default:
+            return sin(2 * .pi * p)
+        }
+    }
+
+    /// Next corner of a VCO's waveform, predicted from its stored phase and frequency.
+    static func vcoBreakpoint(_ comp: CircuitComponent, after t: Double, corners: [Double]) -> Double? {
+        guard comp.runtimeState.count >= 2, comp.runtimeState[1] > 0 else { return nil }
+        let phase = comp.runtimeState[0], f = comp.runtimeState[1]
+        var best = Double.infinity
+        for c in corners {
+            var d = (c - phase).truncatingRemainder(dividingBy: 1)
+            if d <= 1e-9 { d += 1 }
+            best = min(best, d / f)
+        }
+        return t + best
+    }
+
     /// Fastest frequency a source contains, for the "too few samples per cycle" warning.
     static func highestFrequency(_ comp: CircuitComponent) -> Double? {
         if comp.kind == .fmCurrentSource { return frequency(comp, fallback: 500) + (comp.param("modIndex") + 1) * comp.param("modFreq") }

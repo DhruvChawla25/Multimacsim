@@ -388,6 +388,8 @@ public final class MNASolver {
         switch kind {
         case .diode, .led, .zenerDiode, .schottkyDiode, .bjtNPN, .bjtPNP, .opAmp, .abmVoltage, .abmCurrent:
             return true
+        case .vcoSine:
+            return true // the first step reads its control voltage from the iterate
         default:
             return kind.isLogicGate
         }
@@ -446,6 +448,8 @@ public final class MNASolver {
         case .cccs:
             return 1
         case .abmVoltage:
+            return 1
+        case .vcoSine:
             return 1
         case .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer:
             return 1
@@ -594,6 +598,9 @@ public final class MNASolver {
             sys.currentControlledCurrent(from: node(1), to: node(0), auxColumn: k, comp.value)
         case .abmVoltage:
             stampBehavioural(comp, nodes: n, into: &sys, ctx: ctx, branch: k)
+        case .vcoSine:
+            // Output follows the oscillator phase; the control voltage from the last step sets the frequency.
+            sys.voltageSource(k, plus: node(0), minus: node(1), value: ctx.sourceScale * vcoValue(comp, nodes: n, ctx: ctx))
         case .opAmp:
             // Macro-model: output driven against ground with open-loop gain A = 1e5, clipped at the rails.
             // In the linear region the gain is stamped as a VCVS so Newton sees the true slope.
@@ -614,6 +621,28 @@ public final class MNASolver {
         default:
             break
         }
+    }
+
+    // MARK: - Voltage-controlled oscillators
+
+    /// (phase in cycles, frequency in Hz) at the last accepted point. Before the first step the frequency
+    /// comes from the present control voltage.
+    private func vcoState(_ comp: CircuitComponent, nodes n: [Int], voltages: [Int: Double]) -> (Double, Double) {
+        if comp.runtimeState.count >= 2 { return (comp.runtimeState[0], comp.runtimeState[1]) }
+        let vc = (n.count > 3 ? voltage(of: n[2], in: voltages) - voltage(of: n[3], in: voltages) : 0)
+        return (0, max(comp.secondaryValue + comp.param("gain") * vc, 0))
+    }
+
+    private func vcoValue(_ comp: CircuitComponent, nodes n: [Int], ctx: StampContext) -> Double {
+        let phase: Double, freq: Double
+        if comp.runtimeState.count >= 2 {
+            (phase, freq) = (comp.runtimeState[0], comp.runtimeState[1])
+        } else {
+            phase = 0
+            freq = max(comp.secondaryValue + comp.param("gain") * (ctx.v(n.count > 2 ? n[2] : 0) - ctx.v(n.count > 3 ? n[3] : 0)), 0)
+        }
+        let p = (phase + freq * ctx.h).truncatingRemainder(dividingBy: 1)
+        return comp.param("offset") + comp.value * SourceWaveforms.vcoShape(comp.kind, phase: p, frequency: freq)
     }
 
     // MARK: - Behavioural (ABM) sources
@@ -1049,6 +1078,13 @@ public final class MNASolver {
             case .abmCurrent:
                 comp.runtimeCurrent = behaviouralValue(comp, x: x, time: currentTime)
                 comp.runtimeReading = comp.runtimeCurrent
+            case .vcoSine:
+                // Accept the step: advance the phase at the step's frequency, then re-tune from the new control voltage.
+                let (phase, freq) = vcoState(comp, nodes: n, voltages: voltages)
+                let advanced = (phase + freq * dt).truncatingRemainder(dividingBy: 1)
+                comp.runtimeState = [advanced, max(comp.secondaryValue + comp.param("gain") * (v(2) - v(3)), 0)]
+                if let k = auxStart[comp.id], totalNodes + k < x.count { comp.runtimeCurrent = -x[totalNodes + k] }
+                comp.runtimeReading = comp.runtimeState[1]
             case .ohmmeter:
                 let test = ohmmeterTestCurrent(for: comp)
                 comp.runtimeCurrent = test

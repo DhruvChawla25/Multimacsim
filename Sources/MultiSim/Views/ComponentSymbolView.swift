@@ -198,6 +198,8 @@ public struct ComponentSymbolView: View {
             BehaviouralSourceSymbol(isCurrent: false).stroke(symbolColor, lineWidth: lineWidth)
         case .abmCurrent:
             BehaviouralSourceSymbol(isCurrent: true).stroke(symbolColor, lineWidth: lineWidth)
+        case .vcoSine:
+            VCOSymbol(glyph: .sine).stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
@@ -990,6 +992,14 @@ public struct SignalSourceSymbol: Shape {
             path.move(to: CGPoint(x: midX - 3, y: 42)); path.addLine(to: CGPoint(x: midX + 3, y: 42))
             gy = rect.midY + 1
         }
+        path.addPath(glyphPath(center: CGPoint(x: gx, y: gy), scale: s))
+        return path
+    }
+
+    /// The waveform glyph alone, centred on `center`.
+    public func glyphPath(center: CGPoint, scale s: CGFloat) -> Path {
+        var path = Path()
+        let gx = center.x, gy = center.y
         func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: gx + x * s, y: gy + y * s) }
         switch glyph {
         case .sine:
@@ -1059,6 +1069,31 @@ public struct BehaviouralSourceSymbol: Shape {
             path.move(to: CGPoint(x: x, y: y - 11)); path.addLine(to: CGPoint(x: x, y: y - 5))
             path.move(to: CGPoint(x: x - 3, y: y + 8)); path.addLine(to: CGPoint(x: x + 3, y: y + 8))
         }
+        return path
+    }
+}
+
+/// Voltage-controlled oscillator: control leads into a dependent-source diamond holding the output waveform.
+public struct VCOSymbol: Shape {
+    public let glyph: SourceGlyph
+
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let midX = rect.midX + 5, midY = rect.midY
+        path.move(to: CGPoint(x: midX, y: midY - 18))
+        path.addLine(to: CGPoint(x: midX + 18, y: midY))
+        path.addLine(to: CGPoint(x: midX, y: midY + 18))
+        path.addLine(to: CGPoint(x: midX - 18, y: midY))
+        path.closeSubpath()
+        // Output leads to OUT+ / OUT- on the right
+        path.move(to: CGPoint(x: midX, y: midY - 18)); path.addLine(to: CGPoint(x: midX, y: 10)); path.addLine(to: CGPoint(x: 55, y: 10))
+        path.move(to: CGPoint(x: midX, y: midY + 18)); path.addLine(to: CGPoint(x: midX, y: 50)); path.addLine(to: CGPoint(x: 55, y: 50))
+        // Control leads from CTRL+ / CTRL- on the left
+        path.move(to: CGPoint(x: 5, y: 10)); path.addLine(to: CGPoint(x: midX - 9, y: midY - 9))
+        path.move(to: CGPoint(x: 5, y: 50)); path.addLine(to: CGPoint(x: midX - 9, y: midY + 9))
+        // Waveform glyph inside
+        let g = SignalSourceSymbol(glyph: glyph).glyphPath(center: CGPoint(x: midX, y: midY), scale: 0.6)
+        path.addPath(g)
         return path
     }
 }

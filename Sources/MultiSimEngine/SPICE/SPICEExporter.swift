@@ -265,6 +265,8 @@ public final class SPICEExporter {
                         lines.append("\(name) \(node(1)) \(node(0)) I={\(expr)}")
                     }
                 }
+            case .vcoSine:
+                lines.append("* \(name) (\(comp.kind.rawValue)) f = \(comp.secondaryValue) Hz + \(comp.param("gain")) Hz/V x V(\(node(2)),\(node(3))): simulated by the MultiSim engine")
             default:
                 // Signal sources describe themselves (SIN, PULSE, PWL, EXP, SFFM ...).
                 if let spec = SourceWaveforms.spiceSpec(comp) {

@@ -111,6 +111,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "", range: -1e6...1e6, sliderRange: -100...100, isLogarithmic: false, usesESeries: false)
             case .abmVoltage, .abmCurrent:
                 return nil
+            case .vcoSine:
+                return ParameterSpec(label: label, unit: "V", range: 0...1000, sliderRange: 0...50, isLogarithmic: false, usesESeries: false)
             case .bjtNPN, .bjtPNP:
                 return nil
             }
@@ -149,6 +151,8 @@ extension ComponentKind {
                 return ParameterSpec(label: label, unit: "Hz", range: 1e-3...1e6, sliderRange: 1...1e4, isLogarithmic: true, usesESeries: true)
             case .fmCurrentSource:
                 return ParameterSpec(label: label, unit: "Hz", range: 1e-3...1e6, sliderRange: 1...1e4, isLogarithmic: true, usesESeries: true)
+            case .vcoSine:
+                return ParameterSpec(label: label, unit: "Hz", range: 0...1e6, sliderRange: 1...1e4, isLogarithmic: true, usesESeries: true)
             case .bjtNPN, .bjtPNP:
                 return ParameterSpec(label: label, unit: "", range: 1...1000, sliderRange: 20...500, isLogarithmic: true, usesESeries: false)
             default:
