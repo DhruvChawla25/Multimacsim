@@ -66,6 +66,15 @@ extension ComponentKind {
             return [
                 ExtraParameter("period", .linear("Repeat Period (0 = hold the last value):", "s", 0...1000, slider: 0...0.1), default: 4e-3),
             ]
+        case .pulseVoltage:
+            return [
+                ExtraParameter("v1", .linear("Initial Value V1:", "V", -1000...1000, slider: -24...24), default: 0),
+                ExtraParameter("delay", .linear("Delay Time TD:", "s", 0...100, slider: 0...0.01), default: 0),
+                ExtraParameter("rise", .log("Rise Time TR:", "s", 1e-12...10, slider: 1e-9...1e-2), default: 1e-6),
+                ExtraParameter("fall", .log("Fall Time TF:", "s", 1e-12...10, slider: 1e-9...1e-2), default: 1e-6),
+                ExtraParameter("width", .log("Pulse Width PW:", "s", 1e-12...100, slider: 1e-6...1), default: 0.5e-3),
+                ExtraParameter("period", .log("Period PER:", "s", 1e-12...1000, slider: 1e-5...1), default: 1e-3),
+            ]
         default:
             return []
         }

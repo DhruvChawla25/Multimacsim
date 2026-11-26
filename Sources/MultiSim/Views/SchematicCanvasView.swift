@@ -680,6 +680,8 @@ public struct SchematicCanvasView: View {
             return "EXP \(EngineeringFormatter.voltage(comp.param("v1"))) → \(EngineeringFormatter.voltage(comp.value))\nτ \(EngineeringFormatter.units(comp.param("tau1"), "s"))"
         case .pwlVoltage:
             return "PWL \(PWLCache.shared.table(for: comp.textValue)?.points.count ?? 0) pts" + (comp.param("period") > 0 ? "\nrepeat \(EngineeringFormatter.units(comp.param("period"), "s"))" : "")
+        case .pulseVoltage:
+            return "PULSE \(EngineeringFormatter.voltage(comp.param("v1"))) → \(EngineeringFormatter.voltage(comp.value))\nPW \(EngineeringFormatter.units(comp.param("width"), "s")) / \(EngineeringFormatter.units(comp.param("period"), "s"))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

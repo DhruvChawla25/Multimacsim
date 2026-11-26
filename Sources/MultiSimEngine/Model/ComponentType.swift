@@ -65,6 +65,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case fmVoltage = "FM Voltage Source"
     case exponentialVoltage = "Exponential Voltage Source"
     case pwlVoltage = "Piecewise Linear Voltage Source"
+    case pulseVoltage = "Pulse Voltage Source"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -117,6 +118,8 @@ extension ComponentKind {
         case .exponentialVoltage:
             return .signalVoltageSources
         case .pwlVoltage:
+            return .signalVoltageSources
+        case .pulseVoltage:
             return .signalVoltageSources
         case .probe:
             return .probes
@@ -172,6 +175,7 @@ extension ComponentKind {
         case .fmVoltage: return "V"
         case .exponentialVoltage: return "V"
         case .pwlVoltage: return "V"
+        case .pulseVoltage: return "V"
         case .probe: return "P"
         }
     }
@@ -231,6 +235,7 @@ extension ComponentKind {
         case .fmVoltage: return "FM Voltage"
         case .exponentialVoltage: return "Exponential Voltage"
         case .pwlVoltage: return "PWL Voltage"
+        case .pulseVoltage: return "Pulse Voltage"
         case .probe: return "Voltage Probe"
         }
     }
@@ -287,6 +292,7 @@ extension ComponentKind {
         case .fmVoltage: return "dot.radiowaves.left.and.right"
         case .exponentialVoltage: return "chart.line.uptrend.xyaxis"
         case .pwlVoltage: return "chart.xyaxis.line"
+        case .pulseVoltage: return "square.on.square.dashed"
         case .probe: return "pin"
         }
     }
@@ -353,6 +359,7 @@ extension ComponentKind {
     /// Two-terminal independent voltage sources whose value comes from `SourceWaveforms` (+ on pin 0).
     public var isWaveformVoltageSource: Bool {
         switch self {
+        case .pulseVoltage: return true
         case .pwlVoltage: return true
         case .exponentialVoltage: return true
         case .fmVoltage: return true
@@ -454,6 +461,7 @@ extension ComponentKind {
         case .fmVoltage: return PartDefaults(value: 1, secondaryValue: 500)
         case .exponentialVoltage: return PartDefaults(value: 5)
         case .pwlVoltage: return PartDefaults()
+        case .pulseVoltage: return PartDefaults(value: 5)
         default: return PartDefaults()
         }
     }
@@ -491,6 +499,7 @@ extension ComponentKind {
         case .fmVoltage: return "Amplitude (Vp):"
         case .exponentialVoltage: return "Pulsed Value V2 (V):"
         case .pwlVoltage: return "Value:"
+        case .pulseVoltage: return "Pulsed Value V2 (V):"
         default: return "Value:"
         }
     }

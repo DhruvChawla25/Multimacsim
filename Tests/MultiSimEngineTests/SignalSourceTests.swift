@@ -87,4 +87,16 @@ final class SignalSourceTests: XCTestCase {
         XCTAssertNotNil(bad.textValidationError)
         XCTAssertTrue(SPICEExporter.export(circuit: Circuit(components: [src])).contains("PWL(0.0 0.0"))
     }
+
+    func testPulseVoltageFollowsSPICEPulse() {
+        let p = make(.pulseVoltage, value: 5, ["v1": -1, "delay": 1e-3, "rise": 1e-4, "fall": 2e-4, "width": 3e-4, "period": 1e-3])
+        XCTAssertEqual(SourceWaveforms.value(p, at: 0.5e-3), -1)
+        XCTAssertEqual(SourceWaveforms.value(p, at: 1.05e-3), 2, accuracy: 1e-9)
+        XCTAssertEqual(SourceWaveforms.value(p, at: 1.3e-3), 5)
+        XCTAssertEqual(SourceWaveforms.value(p, at: 2.3e-3), 5)
+        XCTAssertEqual(SourceWaveforms.nextBreakpoint(p, after: 1.05e-3)!, 1.1e-3, accuracy: 1e-15)
+        let v = drive(p, dt: 0.25e-3, steps: 6) // 1.5 ms: middle of the fall
+        XCTAssertEqual(v.last!, 2, accuracy: 1e-9)
+        XCTAssertTrue(SPICEExporter.export(circuit: Circuit(components: [p])).contains("PULSE(-1.0 5.0 0.001"))
+    }
 }

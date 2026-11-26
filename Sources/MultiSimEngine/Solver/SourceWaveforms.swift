@@ -75,6 +75,10 @@ enum SourceWaveforms {
         switch comp.kind {
         case .clockSource:
             return .square(low: 0, high: comp.value, frequency: frequency(comp, fallback: 1000))
+        case .pulseVoltage:
+            return PulseShape(v1: comp.param("v1"), v2: comp.value, delay: comp.param("delay"),
+                              rise: comp.param("rise"), fall: comp.param("fall"),
+                              width: comp.param("width"), period: comp.param("period"))
         case .functionGenerator where GeneratorWaveform(rawValue: comp.modeIndex) == .square:
             let off = comp.param("offset")
             return .square(low: off - comp.value, high: off + comp.value, frequency: frequency(comp, fallback: 1000),
@@ -98,6 +102,8 @@ enum SourceWaveforms {
             return exponential(comp, at: t)
         case .pwlVoltage:
             return pwl(comp, at: t)
+        case .pulseVoltage:
+            return pulse(for: comp)?.value(at: t) ?? 0
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -133,6 +139,9 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .pulseVoltage:
+            let p = pulse(for: comp)!
+            return "PULSE(\(p.v1) \(p.v2) \(p.delay) \(p.rise) \(p.fall) \(p.width) \(p.period))"
         case .pwlVoltage:
             return pwlSpice(comp)
         case .exponentialVoltage:
@@ -219,6 +228,8 @@ enum SourceWaveforms {
     /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.
     static func fundamentalFrequency(_ comp: CircuitComponent) -> Double? {
         switch comp.kind {
+        case .pulseVoltage:
+            return 1 / max(comp.param("period"), 1e-12)
         case .pwlVoltage:
             return comp.param("period") > 0 ? 1 / comp.param("period") : nil
         case .fmVoltage:
