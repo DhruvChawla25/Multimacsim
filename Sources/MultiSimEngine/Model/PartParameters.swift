@@ -81,6 +81,11 @@ extension ComponentKind {
                 ExtraParameter("width", .log("Pulse Width PW:", "s", 1e-12...100, slider: 1e-6...1), default: 0.5e-3),
                 ExtraParameter("period", .log("Period PER:", "s", 1e-12...1000, slider: 1e-5...1), default: 1e-3),
             ]
+        case .bipolarVoltage:
+            return [
+                ExtraParameter("duty", .linear("Positive Duty Cycle:", "%", 1...99), default: 50),
+                ExtraParameter("edge", .log("Rise / Fall Time:", "s", 1e-12...1, slider: 1e-9...1e-3), default: 1e-9),
+            ]
         default:
             return []
         }

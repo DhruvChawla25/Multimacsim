@@ -111,4 +111,15 @@ final class SignalSourceTests: XCTestCase {
         XCTAssertEqual(SourceWaveforms.value(old, at: 0.4e-3), 5)
         XCTAssertEqual(SourceWaveforms.value(old, at: 0.6e-3), 0)
     }
+
+    func testBipolarSwingsBothWays() {
+        let b = make(.bipolarVoltage, value: 3, secondary: 100, ["duty": 50])
+        XCTAssertEqual(SourceWaveforms.value(b, at: 2e-3), 3)
+        XCTAssertEqual(SourceWaveforms.value(b, at: 7e-3), -3)
+        let v = drive(b, dt: 1e-4, steps: 200) // two full cycles
+        let mean = v.reduce(0, +) / Double(v.count)
+        XCTAssertEqual(mean, 0, accuracy: 0.05)
+        XCTAssertEqual(v.max()!, 3, accuracy: 1e-9)
+        XCTAssertEqual(v.min()!, -3, accuracy: 1e-9)
+    }
 }
