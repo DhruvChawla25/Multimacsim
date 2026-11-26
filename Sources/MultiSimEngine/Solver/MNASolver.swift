@@ -241,7 +241,8 @@ public final class MNASolver {
             stampCurrentSource(b: &b, fromNode: node(0), toNode: node(1), current: ieq)
 
         case .dcCurrentSource:
-            stampCurrentSource(b: &b, fromNode: node(0), toNode: node(1), current: comp.value)
+            // Current leaves the OUT terminal (pin 0), the way the symbol's arrow points.
+            stampCurrentSource(b: &b, fromNode: node(1), toNode: node(0), current: comp.value)
 
         case .diode, .led, .schottkyDiode:
             stampJunction(comp, anode: node(0), cathode: node(1), into: &A, rhs: &b, voltages: voltages)
@@ -267,8 +268,9 @@ public final class MNASolver {
             stampBJT(comp, nodes: [node(0), node(1), node(2)], into: &A, rhs: &b, voltages: voltages, pnp: comp.kind == .bjtPNP)
 
         case .vccs:
-            // Voltage-Controlled Current Source: I = gm * (V_ctrl+ - V_ctrl-)
-            let gm = comp.value
+            // Voltage-Controlled Current Source: I = gm * (V_ctrl+ - V_ctrl-), pushed out of OUT+
+            // (the terminal the diamond's arrow points to).
+            let gm = -comp.value
             let nOutP = node(0), nOutM = node(1), nCtrlP = node(2), nCtrlM = node(3)
 
             if nOutP > 0, nCtrlP > 0 { A[nOutP - 1, nCtrlP - 1] += gm }

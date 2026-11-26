@@ -165,7 +165,7 @@ extension ComponentKind {
         case .bjtPNP: return "PNP Transistor"
         case .opAmp: return "Operational Amplifier"
         case .vcvs: return "VCVS (Voltage Controlled)"
-        case .vccs: return "VCCS (Current Controlled)"
+        case .vccs: return "VCCS (Voltage Controlled I)"
         case .logicAND: return "AND Gate"
         case .logicOR: return "OR Gate"
         case .logicNOT: return "NOT Inverter"

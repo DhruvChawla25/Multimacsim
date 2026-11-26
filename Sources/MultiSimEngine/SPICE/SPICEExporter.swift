@@ -220,7 +220,8 @@ public final class SPICEExporter {
                 let nOutM = n.count > 1 ? n[1] : "0"
                 let nCtrlP = n.count > 2 ? n[2] : "0"
                 let nCtrlM = n.count > 3 ? n[3] : "0"
-                lines.append("\(name) \(nOutP) \(nOutM) \(nCtrlP) \(nCtrlM) \(comp.value)")
+                // SPICE G pushes current out of its second node, which is our OUT+ terminal.
+                lines.append("\(name) \(nOutM) \(nOutP) \(nCtrlP) \(nCtrlM) \(comp.value)")
 
             default:
                 break
