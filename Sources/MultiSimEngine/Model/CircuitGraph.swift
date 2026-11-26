@@ -343,6 +343,9 @@ public final class CircuitComponent: Identifiable, Codable, Equatable {
                 Pin(index: 2, name: "CTRL+", relativeX: -25, relativeY: -20),
                 Pin(index: 3, name: "CTRL-", relativeX: -25, relativeY: 20)
             ]
+        case .frequencyCounter:
+            // One input; it measures the voltage of that net against ground.
+            return [Pin(index: 0, name: "IN", relativeX: -30, relativeY: 0)]
         case .logicNOT, .logicBuffer:
             // 1 input on left, 1 output on right
             return [

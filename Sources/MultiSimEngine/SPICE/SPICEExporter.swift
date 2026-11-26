@@ -281,6 +281,8 @@ public final class SPICEExporter {
                 }
             case .digitalConstant, .interactiveDigitalConstant:
                 lines.append("\(name) \(node(0)) 0 DC \(comp.stateBool ? comp.value : 0)")
+            case .frequencyCounter:
+                lines.append("* \(name) frequency counter on \(node(0))")
             default:
                 // Signal sources describe themselves (SIN, PULSE, PWL, EXP, SFFM ...).
                 if let spec = SourceWaveforms.spiceSpec(comp) {

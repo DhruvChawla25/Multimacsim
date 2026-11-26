@@ -596,6 +596,8 @@ public final class CircuitEditorViewModel: ObservableObject {
             }
         case .probe:
             return EngineeringFormatter.voltage(comp.runtimeReading)
+        case .frequencyCounter:
+            return EngineeringFormatter.units(comp.runtimeReading, "Hz")
         case .switchSPST:
             return comp.stateBool ? "CLOSED" : "OPEN"
         case .fuse:

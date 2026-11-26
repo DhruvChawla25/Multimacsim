@@ -38,3 +38,39 @@ final class FunctionGeneratorTests: XCTestCase {
         XCTAssertEqual(SourceWaveforms.value(g, at: 0.25e-3), 0.5, accuracy: 0.02)
     }
 }
+
+final class FrequencyCounterTests: XCTestCase {
+    private func count(_ src: CircuitComponent, dt: Double, steps: Int, level: Double = 0, auto: Bool = true) -> CircuitComponent {
+        let bench = TestBench()
+        bench.components.append(src)
+        let fc = bench.add(.frequencyCounter, "XFC1", value: level, closed: auto)
+        let r = bench.add(.resistor, "R1", value: 1000)
+        bench.wire(src.pins[0], r.pins[0]); bench.wire(src.pins[0], fc.pins[0]); bench.ground(src.pins[1], r.pins[1])
+        let solver = bench.solver(dt: dt)
+        for _ in 0..<steps { _ = solver.step() }
+        return fc
+    }
+
+    func testCountsASineToSubStepAccuracy() {
+        let g = CircuitComponent(kind: .functionGenerator, designator: "XFG1", value: 1, secondaryValue: 1234)
+        let fc = count(g, dt: 1e-5, steps: 2000) // 81 samples per cycle, crossings interpolated
+        XCTAssertEqual(fc.runtimeReading, 1234, accuracy: 1234 * 1e-3)
+        XCTAssertEqual(FrequencyCounter.reading(fc).edges, 24, accuracy: 1)
+    }
+
+    func testPulseWidthAndDutyOfAClock() {
+        let clk = CircuitComponent(kind: .clockSource, designator: "CLK", value: 5, secondaryValue: 500, parameters: ["duty": 25])
+        let fc = count(clk, dt: 1e-4, steps: 200, level: 2.5, auto: false)
+        let autoFC = count(clk, dt: 1e-4, steps: 200) // a 0 ... 5 V clock never crosses 0 V: auto level finds 2.5 V
+        XCTAssertEqual(autoFC.runtimeReading, 500, accuracy: 0.5)
+        XCTAssertEqual(FrequencyCounter.triggerLevel(autoFC), 2.5, accuracy: 0.1)
+        let r = FrequencyCounter.reading(fc)
+        XCTAssertEqual(r.frequency, 500, accuracy: 0.5)
+        XCTAssertEqual(r.dutyCycle, 0.25, accuracy: 0.01)
+    }
+
+    func testStoppedSignalReadsZero() {
+        let v = CircuitComponent(kind: .dcVoltageSource, designator: "V1", value: 3)
+        XCTAssertEqual(count(v, dt: 1e-4, steps: 100).runtimeReading, 0)
+    }
+}

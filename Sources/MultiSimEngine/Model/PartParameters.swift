@@ -178,6 +178,8 @@ extension ComponentKind {
             ]
         case .digitalClock:
             return [ExtraParameter("duty", .linear("Duty Cycle:", "%", 1...99), default: 50)]
+        case .frequencyCounter:
+            return [ExtraParameter("hysteresis", .log("Sensitivity (hysteresis):", "V", 1e-6...100, slider: 1e-3...10), default: 0.1)]
         default:
             return []
         }

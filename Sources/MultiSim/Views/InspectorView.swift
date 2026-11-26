@@ -66,6 +66,14 @@ public struct InspectorView: View {
                 measurementRow(title: "Current:", value: EngineeringFormatter.current(comp.runtimeCurrent))
                 measurementRow(title: "Power:", value: EngineeringFormatter.power(abs(comp.runtimeVoltageDrop * comp.runtimeCurrent)))
 
+                if comp.kind == .frequencyCounter {
+                    let r = FrequencyCounter.reading(comp)
+                    measurementRow(title: "Period:", value: EngineeringFormatter.units(r.period, "s"))
+                    measurementRow(title: "Pulse width (high):", value: EngineeringFormatter.units(r.pulseWidth, "s"))
+                    measurementRow(title: "Duty cycle:", value: String(format: "%.1f %%", r.dutyCycle * 100))
+                    measurementRow(title: "Rising edges:", value: "\(r.edges)")
+                }
+
                 if comp.kind.isVoltageControlledOscillator {
                     measurementRow(title: "Oscillating at:", value: EngineeringFormatter.units(comp.runtimeReading, "Hz"))
                 }
@@ -173,6 +181,17 @@ public struct InspectorView: View {
                 set: { comp.stateBool = $0; viewModel.refreshAfterEdit() }
             ))
             .toggleStyle(.switch)
+        }
+
+        if comp.kind == .frequencyCounter {
+            Toggle("Auto trigger level (middle of the swing)", isOn: Binding(
+                get: { comp.stateBool },
+                set: { comp.stateBool = $0; comp.runtimeState = []; viewModel.refreshAfterEdit() }
+            ))
+            .toggleStyle(.switch)
+            Text("Triggering at \(EngineeringFormatter.voltage(FrequencyCounter.triggerLevel(comp)))")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
 
         if comp.kind == .fuse {
@@ -310,6 +329,7 @@ public struct InspectorView: View {
         case .ohmmeter: return "Measured resistance"
         case .wattmeter: return "Measured power"
         case .probe: return "Probe voltage"
+        case .frequencyCounter: return "Frequency"
         case .multimeter:
             switch MeterMode(rawValue: comp.modeIndex) ?? .voltage {
             case .voltage: return "DMM voltage"

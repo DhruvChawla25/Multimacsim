@@ -1108,6 +1108,10 @@ public final class MNASolver {
                 comp.runtimeState = [advanced, max(comp.secondaryValue + comp.param("gain") * (v(2) - v(3)), 0)]
                 if let k = auxStart[comp.id], totalNodes + k < x.count { comp.runtimeCurrent = -x[totalNodes + k] }
                 comp.runtimeReading = comp.runtimeState[1]
+            case .frequencyCounter:
+                comp.runtimeCurrent = 0
+                comp.runtimeVoltageDrop = v(0)
+                FrequencyCounter.sample(comp, voltage: v(0), time: currentTime)
             case .ohmmeter:
                 let test = ohmmeterTestCurrent(for: comp)
                 comp.runtimeCurrent = test

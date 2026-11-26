@@ -96,6 +96,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case digitalClock = "Digital Clock"
     case digitalConstant = "Digital Constant"
     case interactiveDigitalConstant = "Interactive Digital Constant"
+    case frequencyCounter = "Frequency Counter"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -199,6 +200,8 @@ extension ComponentKind {
             return .digitalSources
         case .interactiveDigitalConstant:
             return .digitalSources
+        case .frequencyCounter:
+            return .instruments
         case .probe:
             return .probes
         }
@@ -280,6 +283,7 @@ extension ComponentKind {
         case .digitalClock: return "U_CLK"
         case .digitalConstant: return "U_LOGIC"
         case .interactiveDigitalConstant: return "U_KEY"
+        case .frequencyCounter: return "XFC"
         case .probe: return "P"
         }
     }
@@ -368,6 +372,7 @@ extension ComponentKind {
         case .digitalClock: return "Digital Clock"
         case .digitalConstant: return "Digital Constant (0 / 1)"
         case .interactiveDigitalConstant: return "Interactive Digital Constant (click)"
+        case .frequencyCounter: return "Frequency Counter"
         case .probe: return "Voltage Probe"
         }
     }
@@ -453,6 +458,7 @@ extension ComponentKind {
         case .digitalClock: return "clock.badge"
         case .digitalConstant: return "01.square"
         case .interactiveDigitalConstant: return "hand.tap"
+        case .frequencyCounter: return "number.square"
         case .probe: return "pin"
         }
     }
@@ -476,7 +482,7 @@ extension ComponentKind {
     /// Parts whose label shows a live measured value instead of a static rating.
     public var showsLiveReading: Bool {
         switch self {
-        case .ammeter, .voltmeter, .galvanometer, .ohmmeter, .wattmeter, .multimeter, .probe:
+        case .ammeter, .voltmeter, .galvanometer, .ohmmeter, .wattmeter, .multimeter, .probe, .frequencyCounter:
             return true
         default:
             return false
@@ -670,6 +676,7 @@ extension ComponentKind {
         case .digitalClock: return PartDefaults(value: 5, secondaryValue: 100)
         case .digitalConstant: return PartDefaults(value: 5, isClosed: true)
         case .interactiveDigitalConstant: return PartDefaults(value: 5, isClosed: false)
+        case .frequencyCounter: return PartDefaults(value: 0, isClosed: true)
         default: return PartDefaults()
         }
     }
@@ -732,6 +739,7 @@ extension ComponentKind {
         case .digitalClock: return "Logic High Level (V):"
         case .digitalConstant: return "Logic High Level (V):"
         case .interactiveDigitalConstant: return "Logic High Level (V):"
+        case .frequencyCounter: return "Manual Trigger Level (V):"
         default: return "Value:"
         }
     }

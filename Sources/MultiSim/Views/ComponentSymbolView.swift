@@ -243,6 +243,8 @@ public struct ComponentSymbolView: View {
             DigitalSourceSymbol().stroke(symbolColor, lineWidth: lineWidth)
         case .interactiveDigitalConstant:
             DigitalSourceSymbol(interactive: true).stroke(symbolColor, lineWidth: lineWidth)
+        case .frequencyCounter:
+            CounterSymbol().stroke(symbolColor, lineWidth: lineWidth)
         case .logicAND:
             LogicGateSymbol(gateType: .and).stroke(symbolColor, lineWidth: lineWidth)
         case .logicOR:
@@ -1174,6 +1176,18 @@ public struct DigitalSourceSymbol: Shape {
             path.move(to: CGPoint(x: 25, y: 16)); path.addLine(to: CGPoint(x: 25, y: 10))
             path.move(to: CGPoint(x: 17, y: 10)); path.addLine(to: CGPoint(x: 33, y: 10))
         }
+        return path
+    }
+}
+
+/// Frequency counter: an instrument box with a display window and an input lead on the left.
+public struct CounterSymbol: Shape {
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.addRoundedRect(in: CGRect(x: 14, y: 14, width: 40, height: 32), cornerSize: CGSize(width: 3, height: 3))
+        path.addRect(CGRect(x: 19, y: 19, width: 30, height: 12))
+        path.move(to: CGPoint(x: 0, y: 30)); path.addLine(to: CGPoint(x: 14, y: 30))
+        path.addEllipse(in: CGRect(x: 21, y: 35, width: 5, height: 5))
         return path
     }
 }
