@@ -22,6 +22,14 @@ public final class MNASolver {
     public private(set) var totalNodes: Int = 0
     /// True when the last solve produced a usable operating point.
     public private(set) var isSolutionValid = false
+    /// Newton convergence criteria (SPICE defaults).
+    public var tolerances = SolverTolerances()
+    /// First auxiliary (branch-current) unknown of each part that has one.
+    public private(set) var auxStart: [UUID: Int] = [:]
+    /// Number of auxiliary unknowns after the node voltages.
+    public private(set) var auxCount: Int = 0
+    /// Last accepted solution: node voltages 1...N followed by branch currents.
+    public private(set) var solution: [Double] = []
 
     // Thermal voltage at 300K: kT/q
     private static let Vt = 0.02585
@@ -47,12 +55,14 @@ public final class MNASolver {
         let resolution = circuit.resolveNodes()
         self.pinToNode = resolution.pinToNode
         self.totalNodes = resolution.totalNodes
+        layoutAuxiliaryUnknowns()
     }
 
     /// Resets all internal component states (capacitors discharged, inductors zero current).
     public func reset() {
         currentTime = 0.0
         isSolutionValid = false
+        solution = []
         for comp in circuit.components {
             comp.runtimeVoltageDrop = 0.0
             comp.runtimeCurrent = 0.0
@@ -70,85 +80,93 @@ public final class MNASolver {
     public func step(dt: Double? = nil) -> SimulationStepResult {
         let h = dt ?? timeStep
         currentTime += h
+        layoutAuxiliaryUnknowns()
 
         // If no nodes, return empty result
         if totalNodes == 0 {
             return SimulationStepResult(time: currentTime, nodeVoltages: [0: 0.0], converged: true, iterations: 0, isSingular: false)
         }
 
-        // Auxiliary MNA variables are structural: every voltage-source-like part adds one row/column.
-        let auxCount = circuit.components.reduce(0) { $0 + Self.auxiliaryRowCount(for: $1) }
-        let matrixSize = totalNodes + auxCount
+        let size = totalNodes + auxCount
+        // Warm start from the last accepted point: Newton then only has to follow the change over one step.
+        let x0 = solution.count == size ? solution : [Double](repeating: 0, count: size)
+        let outcome = newtonSolve(time: currentTime, h: h, initial: x0)
 
-        var currentVoltages = [Int: Double]()
-        currentVoltages[0] = 0.0
-        for i in 1...totalNodes {
-            currentVoltages[i] = 0.0
-        }
+        isSolutionValid = !outcome.singular
+        if !outcome.singular { solution = outcome.x }
+        let voltages = nodeVoltageMap(outcome.singular ? x0 : outcome.x)
 
-        var converged = false
-        var singular = false
-        var iterations = 0
-        let maxIterations = 25
-        let tolerance = 1e-4
-
-        while !converged && iterations < maxIterations {
-            iterations += 1
-
-            var A = Matrix(rows: matrixSize, cols: matrixSize)
-            var b = [Double](repeating: 0.0, count: matrixSize)
-
-            // 1. Stamp linear passives and companion models
-            for comp in circuit.components {
-                stampPassive(comp, nodes: nodeIndices(for: comp), into: &A, rhs: &b, voltages: currentVoltages, dt: h)
-            }
-
-            // 2. Stamp sources and constraints. Targets are recomputed every pass so that
-            //    dependent parts (op-amp, logic gates) see the voltages from the previous iterate.
-            var auxRow = totalNodes
-            for comp in circuit.components {
-                guard Self.auxiliaryRowCount(for: comp) > 0 else { continue }
-                let n = nodeIndices(for: comp)
-                stampAuxiliary(comp, nodes: n, row: auxRow, into: &A, rhs: &b, voltages: currentVoltages, time: currentTime)
-                auxRow += 1
-            }
-
-            // 3. Solve system A * x = b
-            guard let solution = A.solve(b: b) else {
-                // Singular matrix (floating node or short-circuit loop)
-                singular = true
-                break
-            }
-
-            // 4. Update voltages & check convergence
-            var maxDelta = 0.0
-            for i in 1...totalNodes {
-                let newV = solution[i - 1]
-                let oldV = currentVoltages[i] ?? 0.0
-                let delta = abs(newV - oldV)
-                if delta > maxDelta {
-                    maxDelta = delta
-                }
-                currentVoltages[i] = newV
-            }
-
-            if maxDelta < tolerance {
-                converged = true
-            }
-        }
-
-        isSolutionValid = !singular
-
-        // 5. Update runtime component states (currents, voltages, companion history, instrument readings)
-        updateComponentRuntimeStates(voltages: currentVoltages, dt: h)
+        // Update runtime component states (currents, voltages, companion history, instrument readings)
+        updateComponentRuntimeStates(voltages: voltages, x: outcome.singular ? x0 : outcome.x, dt: h)
 
         return SimulationStepResult(
             time: currentTime,
-            nodeVoltages: currentVoltages,
-            converged: converged,
-            iterations: iterations,
-            isSingular: singular
+            nodeVoltages: voltages,
+            converged: outcome.converged,
+            iterations: outcome.iterations,
+            isSingular: outcome.singular
         )
+    }
+
+    // MARK: - Newton-Raphson
+
+    struct NewtonOutcome {
+        var x: [Double]
+        var converged: Bool
+        var singular: Bool
+        var iterations: Int
+    }
+
+    /// Solves the (possibly non-linear) circuit equations at one time point.
+    func newtonSolve(time t: Double, h: Double, initial x0: [Double]) -> NewtonOutcome {
+        var x = x0
+        let nonlinear = circuit.components.contains { Self.isNonlinear($0.kind) }
+        var iterations = 0
+        while iterations < tolerances.maxIterations {
+            iterations += 1
+            var sys = MNASystem(nodeCount: totalNodes, auxCount: auxCount)
+            let ctx = StampContext(x: x, nodeCount: totalNodes, time: t, h: h)
+            for comp in circuit.components {
+                stamp(comp, nodes: nodeIndices(for: comp), into: &sys, ctx: ctx)
+            }
+            guard let xNew = sys.A.solve(b: sys.b) else {
+                return NewtonOutcome(x: x, converged: false, singular: true, iterations: iterations)
+            }
+            let done = !nonlinear || hasConverged(old: x, new: xNew)
+            x = xNew
+            if done {
+                return NewtonOutcome(x: x, converged: true, singular: false, iterations: iterations)
+            }
+        }
+        return NewtonOutcome(x: x, converged: false, singular: false, iterations: iterations)
+    }
+
+    /// SPICE convergence test: every node voltage within reltol·|v| + vntol, every branch current within reltol·|i| + abstol.
+    func hasConverged(old: [Double], new: [Double]) -> Bool {
+        for i in 0..<new.count {
+            let a = new[i], b = i < old.count ? old[i] : 0
+            let floor = i < totalNodes ? tolerances.vntol : tolerances.abstol
+            if abs(a - b) > tolerances.reltol * max(abs(a), abs(b)) + floor { return false }
+        }
+        return true
+    }
+
+    /// Parts whose stamp depends on the present solution, so Newton has to iterate.
+    static func isNonlinear(_ kind: ComponentKind) -> Bool {
+        switch kind {
+        case .diode, .led, .zenerDiode, .schottkyDiode, .bjtNPN, .bjtPNP, .opAmp:
+            return true
+        default:
+            return kind.isLogicGate
+        }
+    }
+
+    private func nodeVoltageMap(_ x: [Double]) -> [Int: Double] {
+        var map: [Int: Double] = [0: 0.0]
+        for i in 1...max(totalNodes, 1) where i <= totalNodes {
+            map[i] = i - 1 < x.count ? x[i - 1] : 0
+        }
+        return map
     }
 
     // MARK: - Node helpers
@@ -160,6 +178,20 @@ public final class MNASolver {
     private func voltage(of node: Int, in voltages: [Int: Double]) -> Double {
         if node == 0 { return 0.0 }
         return voltages[node] ?? 0.0
+    }
+
+    /// Assigns each part that needs branch-current unknowns its first auxiliary row.
+    func layoutAuxiliaryUnknowns() {
+        var next = 0
+        var map: [UUID: Int] = [:]
+        for comp in circuit.components {
+            let count = Self.auxiliaryRowCount(for: comp)
+            guard count > 0 else { continue }
+            map[comp.id] = next
+            next += count
+        }
+        auxStart = map
+        auxCount = next
     }
 
     /// How many auxiliary MNA variables a part needs (1 for each ideal source / constraint).
@@ -174,109 +206,116 @@ public final class MNASolver {
         }
     }
 
-    // MARK: - Passive stamping
+    // MARK: - Stamping
 
-    private func stampPassive(
-        _ comp: CircuitComponent,
-        nodes n: [Int],
-        into A: inout Matrix,
-        rhs b: inout [Double],
-        voltages: [Int: Double],
-        dt h: Double
-    ) {
+    private func stamp(_ comp: CircuitComponent, nodes n: [Int], into sys: inout MNASystem, ctx: StampContext) {
         func node(_ i: Int) -> Int { i < n.count ? n[i] : 0 }
 
         switch comp.kind {
         case .resistor, .switchSPST, .rheostat, .lamp, .fuse, .thermistor, .photoResistor,
              .ammeter, .voltmeter, .galvanometer:
             if let r = resistance(of: comp) {
-                stampConductance(matrix: &A, n1: node(0), n2: node(1), g: 1.0 / r)
+                sys.conductance(node(0), node(1), 1.0 / r)
             }
 
         case .multimeter:
             switch MeterMode(rawValue: comp.modeIndex) ?? .voltage {
             case .voltage, .current:
-                let r = multimeterResistance(comp)
-                stampConductance(matrix: &A, n1: node(0), n2: node(1), g: 1.0 / r)
+                sys.conductance(node(0), node(1), 1.0 / multimeterResistance(comp))
             case .resistance:
                 // Ohmmeter: forces a known test current through whatever is hooked across it.
-                stampCurrentSource(b: &b, fromNode: node(1), toNode: node(0), current: ohmmeterTestCurrent(for: comp))
+                sys.current(from: node(1), to: node(0), ohmmeterTestCurrent(for: comp))
             }
 
         case .ohmmeter:
-            stampCurrentSource(b: &b, fromNode: node(1), toNode: node(0), current: ohmmeterTestCurrent(for: comp))
+            sys.current(from: node(1), to: node(0), ohmmeterTestCurrent(for: comp))
 
         case .potentiometer:
             let total = max(comp.value, 1e-6)
             let ratio = Self.wiperRatio(of: comp)
             guard n.count >= 3 else {
                 // Files saved before the 3-terminal divider: behave as a variable resistor.
-                stampConductance(matrix: &A, n1: node(0), n2: node(1), g: 1.0 / max(total * ratio, 1e-6))
+                sys.conductance(node(0), node(1), 1.0 / max(total * ratio, 1e-6))
                 return
             }
             // Track split at the wiper: A-W and W-B resistors.
-            stampConductance(matrix: &A, n1: node(0), n2: node(2), g: 1.0 / max(total * ratio, 1e-6))
-            stampConductance(matrix: &A, n1: node(2), n2: node(1), g: 1.0 / max(total * (1.0 - ratio), 1e-6))
+            sys.conductance(node(0), node(2), 1.0 / max(total * ratio, 1e-6))
+            sys.conductance(node(2), node(1), 1.0 / max(total * (1.0 - ratio), 1e-6))
 
         case .wattmeter:
             // Current coil in series (pin 0 -> 1), pressure coil across the load (pin 2 -> 3).
-            stampConductance(matrix: &A, n1: node(0), n2: node(1), g: 1.0 / max(comp.value > 0 ? comp.value : 0.05, 1e-4))
+            sys.conductance(node(0), node(1), 1.0 / max(comp.value > 0 ? comp.value : 0.05, 1e-4))
             let pcR = comp.secondaryValue > 0 ? comp.secondaryValue : 1e6
-            stampConductance(matrix: &A, n1: node(2), n2: node(3), g: 1.0 / pcR)
+            sys.conductance(node(2), node(3), 1.0 / pcR)
 
         case .capacitor, .electrolyticCapacitor, .trimmerCapacitor:
             // Backward Euler companion model: G = C/dt in parallel with a history source.
             let c = max(comp.value, 1e-15)
-            let geq = c / h
-            let ieq = geq * comp.runtimePrevVoltage
-            stampConductance(matrix: &A, n1: node(0), n2: node(1), g: geq)
-            stampCurrentSource(b: &b, fromNode: node(1), toNode: node(0), current: ieq)
+            let geq = c / ctx.h
+            sys.conductance(node(0), node(1), geq)
+            sys.current(from: node(1), to: node(0), geq * comp.runtimePrevVoltage)
 
         case .inductor:
             // Backward Euler companion model: G = dt/L in parallel with a history source.
             let l = max(comp.value, 1e-12)
-            let geq = h / l
-            let ieq = comp.runtimePrevCurrent
-            stampConductance(matrix: &A, n1: node(0), n2: node(1), g: geq)
-            stampCurrentSource(b: &b, fromNode: node(0), toNode: node(1), current: ieq)
+            sys.conductance(node(0), node(1), ctx.h / l)
+            sys.current(from: node(0), to: node(1), comp.runtimePrevCurrent)
 
         case .dcCurrentSource:
             // Current leaves the OUT terminal (pin 0), the way the symbol's arrow points.
-            stampCurrentSource(b: &b, fromNode: node(1), toNode: node(0), current: comp.value)
+            sys.current(from: node(1), to: node(0), comp.value)
 
         case .diode, .led, .schottkyDiode:
-            stampJunction(comp, anode: node(0), cathode: node(1), into: &A, rhs: &b, voltages: voltages)
+            stampJunction(comp, anode: node(0), cathode: node(1), into: &sys, ctx: ctx)
 
         case .zenerDiode:
-            let nA = node(0)
-            let nK = node(1)
-            let vd = voltage(of: nA, in: voltages) - voltage(of: nK, in: voltages)
+            let nA = node(0), nK = node(1)
+            let vd = ctx.v(nA) - ctx.v(nK)
             let vz = comp.secondaryValue > 0 ? comp.secondaryValue : 5.1
-
             if vd < -vz {
                 // Reverse breakdown: modelled as a 10 ohm impedance clamped at Vz.
                 let gz = 1.0 / 10.0
-                stampConductance(matrix: &A, n1: nA, n2: nK, g: gz)
-                stampCurrentSource(b: &b, fromNode: nA, toNode: nK, current: -gz * (-vd - vz))
+                sys.conductance(nA, nK, gz)
+                sys.current(from: nA, to: nK, -gz * (-vd - vz))
             } else if vd > 0.6 {
-                stampConductance(matrix: &A, n1: nA, n2: nK, g: 1.0 / 0.1)
+                sys.conductance(nA, nK, 1.0 / 0.1)
             } else {
-                stampConductance(matrix: &A, n1: nA, n2: nK, g: 1e-12)
+                sys.conductance(nA, nK, 1e-12)
             }
 
         case .bjtNPN, .bjtPNP:
-            stampBJT(comp, nodes: [node(0), node(1), node(2)], into: &A, rhs: &b, voltages: voltages, pnp: comp.kind == .bjtPNP)
+            stampBJT(comp, nodes: [node(0), node(1), node(2)], into: &sys, ctx: ctx, pnp: comp.kind == .bjtPNP)
 
         case .vccs:
             // Voltage-Controlled Current Source: I = gm * (V_ctrl+ - V_ctrl-), pushed out of OUT+
             // (the terminal the diamond's arrow points to).
-            let gm = -comp.value
-            let nOutP = node(0), nOutM = node(1), nCtrlP = node(2), nCtrlM = node(3)
+            sys.transconductance(from: node(1), to: node(0), cp: node(2), cm: node(3), comp.value)
 
-            if nOutP > 0, nCtrlP > 0 { A[nOutP - 1, nCtrlP - 1] += gm }
-            if nOutP > 0, nCtrlM > 0 { A[nOutP - 1, nCtrlM - 1] -= gm }
-            if nOutM > 0, nCtrlP > 0 { A[nOutM - 1, nCtrlP - 1] -= gm }
-            if nOutM > 0, nCtrlM > 0 { A[nOutM - 1, nCtrlM - 1] += gm }
+        default:
+            break
+        }
+
+        guard let k = auxStart[comp.id] else { return }
+        switch comp.kind {
+        case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator:
+            sys.voltageSource(k, plus: node(0), minus: node(1), value: sourceTargetVoltage(comp, time: ctx.time))
+
+        case .vcvs:
+            // V(out+) - V(out-) = gain * (V(ctrl+) - V(ctrl-))
+            sys.branch(k, plus: node(0), minus: node(1))
+            sys.branchDependsOnNode(k, node: node(2), -comp.value)
+            sys.branchDependsOnNode(k, node: node(3), comp.value)
+
+        case .opAmp:
+            // Macro-model: output pin driven as a source against ground with finite open-loop gain and rails.
+            let vPlus = ctx.v(node(1))
+            let vMinus = ctx.v(node(0))
+            let rail = comp.secondaryValue > 0 ? comp.secondaryValue : 15.0
+            let target = min(max((vPlus - vMinus) * 1e5, -rail), rail)
+            sys.voltageSource(k, plus: node(2), minus: 0, value: target)
+
+        case .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer:
+            sys.voltageSource(k, plus: n.last ?? 0, minus: 0, value: evaluateLogicGate(comp: comp, nodes: n, ctx: ctx))
 
         default:
             break
@@ -313,65 +352,6 @@ public final class MNASolver {
         }
     }
 
-    private func stampAuxiliary(
-        _ comp: CircuitComponent,
-        nodes n: [Int],
-        row eqRow: Int,
-        into A: inout Matrix,
-        rhs b: inout [Double],
-        voltages: [Int: Double],
-        time t: Double
-    ) {
-        func node(_ i: Int) -> Int { i < n.count ? n[i] : 0 }
-
-        func stampIdealSource(nPlus: Int, nMinus: Int, target: Double) {
-            if nPlus > 0 {
-                A[nPlus - 1, eqRow] += 1.0
-                A[eqRow, nPlus - 1] += 1.0
-            }
-            if nMinus > 0 {
-                A[nMinus - 1, eqRow] -= 1.0
-                A[eqRow, nMinus - 1] -= 1.0
-            }
-            b[eqRow] = target
-        }
-
-        switch comp.kind {
-        case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator:
-            stampIdealSource(nPlus: node(0), nMinus: node(1), target: sourceTargetVoltage(comp, time: t))
-
-        case .vcvs:
-            // V(out+) - V(out-) = gain * (V(ctrl+) - V(ctrl-))
-            let gain = comp.value
-            let nOutP = node(0), nOutM = node(1), nCtrlP = node(2), nCtrlM = node(3)
-            if nOutP > 0 {
-                A[nOutP - 1, eqRow] += 1.0
-                A[eqRow, nOutP - 1] += 1.0
-            }
-            if nOutM > 0 {
-                A[nOutM - 1, eqRow] -= 1.0
-                A[eqRow, nOutM - 1] -= 1.0
-            }
-            if nCtrlP > 0 { A[eqRow, nCtrlP - 1] -= gain }
-            if nCtrlM > 0 { A[eqRow, nCtrlM - 1] += gain }
-            b[eqRow] = 0.0
-
-        case .opAmp:
-            // Macro-model: output pin driven as a source against ground with finite open-loop gain and rails.
-            let vPlus = voltage(of: node(1), in: voltages)
-            let vMinus = voltage(of: node(0), in: voltages)
-            let rail = comp.secondaryValue > 0 ? comp.secondaryValue : 15.0
-            let target = min(max((vPlus - vMinus) * 1e5, -rail), rail)
-            stampIdealSource(nPlus: node(2), nMinus: 0, target: target)
-
-        case .logicAND, .logicOR, .logicNOT, .logicNAND, .logicNOR, .logicXOR, .logicXNOR, .logicBuffer:
-            stampIdealSource(nPlus: n.last ?? 0, nMinus: 0, target: evaluateLogicGate(comp: comp, nodes: n, voltages: voltages))
-
-        default:
-            break
-        }
-    }
-
     // MARK: - Device models
 
     private struct JunctionModel {
@@ -396,14 +376,13 @@ public final class MNASolver {
         _ comp: CircuitComponent,
         anode nA: Int,
         cathode nK: Int,
-        into A: inout Matrix,
-        rhs b: inout [Double],
-        voltages: [Int: Double]
+        into sys: inout MNASystem,
+        ctx: StampContext
     ) {
         let model = Self.junctionModel(for: comp)
         let vt = Self.Vt * model.emissionCoefficient
 
-        var vd = voltage(of: nA, in: voltages) - voltage(of: nK, in: voltages)
+        var vd = ctx.v(nA) - ctx.v(nK)
 
         // Seed the first iterate near the conduction knee so the exponential does not start at zero.
         if comp.runtimePrevVoltage >= 0.1 {
@@ -417,38 +396,37 @@ public final class MNASolver {
         let id = model.saturation * (expTerm - 1.0)
         let gd = max((model.saturation / vt) * expTerm, 1e-12)
 
-        stampConductance(matrix: &A, n1: nA, n2: nK, g: gd)
-        stampCurrentSource(b: &b, fromNode: nA, toNode: nK, current: id - gd * vd)
+        sys.conductance(nA, nK, gd)
+        sys.current(from: nA, to: nK, id - gd * vd)
     }
 
     private func stampBJT(
         _ comp: CircuitComponent,
         nodes n: [Int],
-        into A: inout Matrix,
-        rhs b: inout [Double],
-        voltages: [Int: Double],
+        into sys: inout MNASystem,
+        ctx: StampContext,
         pnp: Bool
     ) {
         guard n.count >= 3 else { return }
         let nB = n[0], nC = n[1], nE = n[2]
         let beta = comp.secondaryValue > 0 ? comp.secondaryValue : 100.0
-        let vB = voltage(of: nB, in: voltages)
-        let vE = voltage(of: nE, in: voltages)
+        let vB = ctx.v(nB)
+        let vE = ctx.v(nE)
 
         if pnp {
             let vEB = min(max(vE - vB, -5.0), 0.8)
             let ib = 1e-14 * (exp(vEB / Self.Vt) - 1.0)
             let geb = max((1e-14 / Self.Vt) * exp(vEB / Self.Vt), 1e-12)
-            stampConductance(matrix: &A, n1: nE, n2: nB, g: geb)
-            stampCurrentSource(b: &b, fromNode: nE, toNode: nB, current: ib - geb * vEB)
-            stampCurrentSource(b: &b, fromNode: nE, toNode: nC, current: max(beta * ib, 0.0))
+            sys.conductance(nE, nB, geb)
+            sys.current(from: nE, to: nB, ib - geb * vEB)
+            sys.current(from: nE, to: nC, max(beta * ib, 0.0))
         } else {
             let vBE = min(max(vB - vE, -5.0), 0.8)
             let ib = 1e-14 * (exp(vBE / Self.Vt) - 1.0)
             let gbe = max((1e-14 / Self.Vt) * exp(vBE / Self.Vt), 1e-12)
-            stampConductance(matrix: &A, n1: nB, n2: nE, g: gbe)
-            stampCurrentSource(b: &b, fromNode: nB, toNode: nE, current: ib - gbe * vBE)
-            stampCurrentSource(b: &b, fromNode: nC, toNode: nE, current: max(beta * ib, 0.0))
+            sys.conductance(nB, nE, gbe)
+            sys.current(from: nB, to: nE, ib - gbe * vBE)
+            sys.current(from: nC, to: nE, max(beta * ib, 0.0))
         }
     }
 
@@ -520,36 +498,12 @@ public final class MNASolver {
         }
     }
 
-    // MARK: - Matrix stamping primitives
-
-    private func stampConductance(matrix: inout Matrix, n1: Int, n2: Int, g: Double) {
-        if n1 > 0 {
-            matrix[n1 - 1, n1 - 1] += g
-        }
-        if n2 > 0 {
-            matrix[n2 - 1, n2 - 1] += g
-        }
-        if n1 > 0 && n2 > 0 {
-            matrix[n1 - 1, n2 - 1] -= g
-            matrix[n2 - 1, n1 - 1] -= g
-        }
-    }
-
-    private func stampCurrentSource(b: inout [Double], fromNode: Int, toNode: Int, current: Double) {
-        if fromNode > 0 {
-            b[fromNode - 1] -= current
-        }
-        if toNode > 0 {
-            b[toNode - 1] += current
-        }
-    }
-
     // MARK: - Logic
 
     /// High = 5.0V, Low = 0.0V. Threshold = 2.5V.
-    private func evaluateLogicGate(comp: CircuitComponent, nodes n: [Int], voltages: [Int: Double]) -> Double {
-        let in1 = voltage(of: n.first ?? 0, in: voltages) > 2.5
-        let in2 = n.count > 1 ? voltage(of: n[1], in: voltages) > 2.5 : false
+    private func evaluateLogicGate(comp: CircuitComponent, nodes n: [Int], ctx: StampContext) -> Double {
+        let in1 = ctx.v(n.first ?? 0) > 2.5
+        let in2 = n.count > 1 ? ctx.v(n[1]) > 2.5 : false
 
         let result: Bool
         switch comp.kind {
@@ -568,7 +522,7 @@ public final class MNASolver {
 
     // MARK: - Runtime state
 
-    private func updateComponentRuntimeStates(voltages: [Int: Double], dt: Double) {
+    private func updateComponentRuntimeStates(voltages: [Int: Double], x: [Double], dt: Double) {
         for comp in circuit.components {
             let n = nodeIndices(for: comp)
             func v(_ i: Int) -> Double { i < n.count ? voltage(of: n[i], in: voltages) : 0.0 }
@@ -642,6 +596,12 @@ public final class MNASolver {
             case .probe:
                 comp.runtimeCurrent = 0.0
                 comp.runtimeReading = v(0)
+
+            case .dcVoltageSource, .acVoltageSource, .clockSource, .functionGenerator, .vcvs:
+                // MNA's branch unknown flows into the + terminal; report the current delivered out of it.
+                if let k = auxStart[comp.id], totalNodes + k < x.count {
+                    comp.runtimeCurrent = -x[totalNodes + k]
+                }
 
             default:
                 break
