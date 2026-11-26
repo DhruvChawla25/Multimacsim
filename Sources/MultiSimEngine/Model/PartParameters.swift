@@ -62,6 +62,10 @@ extension ComponentKind {
                 ExtraParameter("td2", .linear("Fall Delay TD2:", "s", 0...100, slider: 0...0.05), default: 5e-3),
                 ExtraParameter("tau2", .log("Fall Time Constant τ2:", "s", 1e-9...100, slider: 1e-6...1), default: 1e-3),
             ]
+        case .pwlVoltage:
+            return [
+                ExtraParameter("period", .linear("Repeat Period (0 = hold the last value):", "s", 0...1000, slider: 0...0.1), default: 4e-3),
+            ]
         default:
             return []
         }
@@ -70,10 +74,18 @@ extension ComponentKind {
     /// Free-text setting, if the part has one.
     public var textParameter: TextParameter? {
         switch self {
+        case .pwlVoltage:
+            return TextParameter(label: "Points (time value, one pair per line):", defaultText: "0 0\n1m 5\n2m 5\n3m 0",
+                                 help: "Straight lines join the points. Use engineering suffixes: 1m = 1 ms, 2.5u = 2.5 µs.")
         default:
             return nil
         }
     }
+}
+
+extension ComponentKind {
+    /// Sources whose text setting is a PWL point list.
+    public var usesPWLText: Bool { self == .pwlVoltage }
 }
 
 extension CircuitComponent {
@@ -91,6 +103,12 @@ extension CircuitComponent {
 
     /// Problem with the free-text setting, or nil when it is usable.
     public var textValidationError: String? {
-        nil
+        switch kind {
+        case _ where kind.usesPWLText:
+            if case .failure(let e) = PWLTable.parse(textValue) { return e.description }
+            return nil
+        default:
+            return nil
+        }
     }
 }

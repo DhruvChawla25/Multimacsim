@@ -96,6 +96,8 @@ enum SourceWaveforms {
             return fm(comp, at: t)
         case .exponentialVoltage:
             return exponential(comp, at: t)
+        case .pwlVoltage:
+            return pwl(comp, at: t)
         case .dcVoltageSource, .dcCurrentSource:
             return comp.value
         case .acVoltageSource:
@@ -131,6 +133,8 @@ enum SourceWaveforms {
     /// SPICE source specification for the signal sources that have no hand-written export.
     static func spiceSpec(_ comp: CircuitComponent) -> String? {
         switch comp.kind {
+        case .pwlVoltage:
+            return pwlSpice(comp)
         case .exponentialVoltage:
             return exponentialSpice(comp)
         case .fmVoltage:
@@ -172,6 +176,39 @@ enum SourceWaveforms {
         "EXP(\(comp.param("v1")) \(comp.value) \(comp.param("td1")) \(comp.param("tau1")) \(max(comp.param("td2"), comp.param("td1"))) \(comp.param("tau2")))"
     }
 
+    /// Piecewise-linear source, optionally repeating every `period` seconds.
+    static func pwl(_ comp: CircuitComponent, at t: Double) -> Double {
+        guard let table = PWLCache.shared.table(for: comp.textValue) else { return 0 }
+        let period = comp.param("period")
+        guard period > 0, period >= table.duration, t > period else { return table.value(at: t) }
+        return table.value(at: t.truncatingRemainder(dividingBy: period))
+    }
+
+    static func pwlBreakpoint(_ comp: CircuitComponent, after t: Double) -> Double? {
+        guard let table = PWLCache.shared.table(for: comp.textValue) else { return nil }
+        let period = comp.param("period")
+        guard period > 0, period >= table.duration else { return table.nextCorner(after: t) }
+        let cycle = floor(t / period)
+        for k in [cycle, cycle + 1] {
+            let base = k * period
+            if let c = table.nextCorner(after: t - base) { return base + c }
+            // The wrap back to the first point is a corner too.
+            if base + period > t + max(abs(t) * 1e-12, 1e-15) { return base + period }
+        }
+        return nil
+    }
+
+    static func pwlSpice(_ comp: CircuitComponent) -> String? {
+        guard let table = PWLCache.shared.table(for: comp.textValue) else { return nil }
+        var pts = table.points.map { "\($0.t) \($0.v)" }
+        let period = comp.param("period")
+        if period > 0, period >= table.duration {
+            if period > table.duration, let first = table.points.first { pts.append("\(period) \(first.v)") }
+            return "PWL(\(pts.joined(separator: " "))) r=0"
+        }
+        return "PWL(\(pts.joined(separator: " ")))"
+    }
+
     /// Fastest frequency a source contains, for the "too few samples per cycle" warning.
     static func highestFrequency(_ comp: CircuitComponent) -> Double? {
         if comp.kind == .fmVoltage { return frequency(comp, fallback: 500) + (comp.param("modIndex") + 1) * comp.param("modFreq") }
@@ -182,6 +219,8 @@ enum SourceWaveforms {
     /// Repetition frequency of a periodic source, used to size the AC meters' averaging window.
     static func fundamentalFrequency(_ comp: CircuitComponent) -> Double? {
         switch comp.kind {
+        case .pwlVoltage:
+            return comp.param("period") > 0 ? 1 / comp.param("period") : nil
         case .fmVoltage:
             return min(frequency(comp, fallback: 500), max(comp.param("modFreq"), 1e-3))
         case .amVoltage:
@@ -197,6 +236,7 @@ enum SourceWaveforms {
 
     /// Earliest waveform corner of this source strictly after `t`.
     static func nextBreakpoint(_ comp: CircuitComponent, after t: Double) -> Double? {
+        if comp.kind == .pwlVoltage { return pwlBreakpoint(comp, after: t) }
         if comp.kind == .exponentialVoltage { return exponentialBreakpoint(comp, after: t) }
         if let p = pulse(for: comp) { return p.nextBreakpoint(after: t) }
         if comp.kind == .functionGenerator, GeneratorWaveform(rawValue: comp.modeIndex) == .triangle {

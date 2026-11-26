@@ -61,4 +61,30 @@ final class SignalSourceTests: XCTestCase {
         let v = drive(e, dt: 3e-4, steps: 10) // t = 3 ms
         XCTAssertEqual(v.last!, 10 * (1 - exp(-2)), accuracy: 1e-9)
     }
+
+    func testPWLParsesAndInterpolates() throws {
+        let table = try PWLTable.parse("0 0, 1m 5\n2m 5; 3m -2").get()
+        XCTAssertEqual(table.points.count, 4)
+        XCTAssertEqual(table.value(at: 0.5e-3), 2.5, accuracy: 1e-12)
+        XCTAssertEqual(table.value(at: 2.5e-3), 1.5, accuracy: 1e-12)
+        XCTAssertEqual(table.value(at: 9), -2)
+        XCTAssertEqual(PWLTable.parse("0 0 1m"), .failure(.oddCount))
+        XCTAssertEqual(PWLTable.parse("0 0 2m 1 1m 3"), .failure(.timeGoesBack(1e-3)))
+        XCTAssertEqual(PWLTable.parse("0 zz"), .failure(.badNumber("zz")))
+    }
+
+    func testPWLSourceRepeatsAndBreaksAtCorners() {
+        let src = make(.pwlVoltage, ["period": 4e-3], text: "0 0\n1m 5\n2m 5\n3m 0")
+        XCTAssertNil(src.textValidationError)
+        XCTAssertEqual(SourceWaveforms.value(src, at: 4.5e-3), 2.5, accuracy: 1e-9)
+        XCTAssertEqual(SourceWaveforms.nextBreakpoint(src, after: 1.5e-3)!, 2e-3, accuracy: 1e-15)
+        XCTAssertEqual(SourceWaveforms.nextBreakpoint(src, after: 3.5e-3)!, 4e-3, accuracy: 1e-15)
+        XCTAssertEqual(SourceWaveforms.nextBreakpoint(src, after: 4e-3)!, 5e-3, accuracy: 1e-15)
+        // Steps of 0.7 ms do not line up with the 1 ms corners; the load still sees the exact ramp.
+        let v = drive(src, dt: 0.7e-3, steps: 4) // t = 2.8 ms
+        XCTAssertEqual(v.last!, 1.0, accuracy: 1e-9)
+        let bad = make(.pwlVoltage, text: "0 0 1")
+        XCTAssertNotNil(bad.textValidationError)
+        XCTAssertTrue(SPICEExporter.export(circuit: Circuit(components: [src])).contains("PWL(0.0 0.0"))
+    }
 }
