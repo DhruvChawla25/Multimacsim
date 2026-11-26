@@ -172,3 +172,31 @@ final class AdaptiveStepTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(solver.adaptiveStep, 1e-4 * 0.999, "grows back to the full step")
     }
 }
+
+/// Transient against phasor: once the start-up transient dies away the two must agree in amplitude and phase.
+final class TransientVersusPhasorTests: XCTestCase {
+    func testSeriesRLCSettlesToThePhasorAmplitudeAndPhase() throws {
+        let peak = 130.0 * 2.0.squareRoot()
+        let bench = TestBench()
+        let vs = bench.add(.acVoltageSource, "Vs", value: peak, secondary: 50)
+        let r = bench.add(.resistor, "R", value: 200)
+        let l = bench.add(.inductor, "L", value: 0.237)
+        let c = bench.add(.capacitor, "C", value: 18e-6)
+        bench.wire(vs.pins[0], r.pins[0]); bench.wire(r.pins[1], l.pins[0]); bench.wire(l.pins[1], c.pins[0])
+        bench.ground(c.pins[1], vs.pins[1])
+        let ac = try ACSteadyStateAnalyzer.analyze(bench.circuit).get()
+        let i = ac.sourceCurrent // peak phasor, angle relative to the sine source
+        let dt = 5e-5
+        let solver = bench.solver(dt: dt)
+        var worst = 0.0
+        for k in 1...10_000 { // 0.5 s; compare over the last two cycles sample by sample
+            _ = solver.step()
+            if k > 9_200 {
+                let t = Double(k) * dt
+                let expected = i.magnitude * sin(2 * .pi * 50 * t + i.angleDegrees * .pi / 180)
+                worst = max(worst, abs(r.runtimeCurrent - expected))
+            }
+        }
+        XCTAssertLessThan(worst, i.magnitude * 0.002, "within 0.2 % of the phasor waveform")
+    }
+}
