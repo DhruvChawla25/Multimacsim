@@ -132,6 +132,15 @@ extension ComponentKind {
                 ExtraParameter("yOffset", .linear("Y Offset:", "V", -1000...1000, slider: -10...10), default: 0),
                 ExtraParameter("outOffset", .linear("Output Offset:", "V", -1000...1000, slider: -10...10), default: 0),
             ]
+        case .dividerBlock:
+            return [
+                ExtraParameter("xGain", .linear("X (numerator) Gain:", "", -1e6...1e6, slider: -10...10), default: 1),
+                ExtraParameter("xOffset", .linear("X Offset:", "V", -1000...1000, slider: -10...10), default: 0),
+                ExtraParameter("yGain", .linear("Y (denominator) Gain:", "", -1e6...1e6, slider: -10...10), default: 1),
+                ExtraParameter("yOffset", .linear("Y Offset:", "V", -1000...1000, slider: -10...10), default: 0),
+                ExtraParameter("yMin", .log("Denominator Lower Limit:", "V", 1e-15...1e3, slider: 1e-9...1), default: 1e-6),
+                ExtraParameter("outOffset", .linear("Output Offset:", "V", -1000...1000, slider: -10...10), default: 0),
+            ]
         default:
             return []
         }

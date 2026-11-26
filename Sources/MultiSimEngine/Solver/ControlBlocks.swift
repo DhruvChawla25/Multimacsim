@@ -8,6 +8,8 @@ public enum ControlBlocks {
     public static func inputNames(_ kind: ComponentKind) -> [String] {
         switch kind {
         // <inputs>
+        case .dividerBlock:
+            return ["X", "Y"]
         case .multiplierBlock:
             return ["X", "Y"]
         default:
@@ -30,6 +32,8 @@ public enum ControlBlocks {
     public static func label(_ kind: ComponentKind) -> String {
         switch kind {
         // <labels>
+        case .dividerBlock:
+            return "÷"
         case .multiplierBlock:
             return "×"
         case .gainBlock:
@@ -50,6 +54,16 @@ public enum ControlBlocks {
         let zero = [Double](repeating: 0, count: u.count)
         switch comp.kind {
         // <eval>
+        case .dividerBlock:
+            // V(out) = K·[xg·(X + xo)] / [yg·(Y + yo)] + output offset, |denominator| held at or above the lower limit.
+            let k = comp.value, xg = comp.param("xGain"), yg = comp.param("yGain")
+            let x = xg * (u[0] + comp.param("xOffset"))
+            let rawY = yg * (u[1] + comp.param("yOffset"))
+            let floor = max(comp.param("yMin"), 1e-15)
+            let limited = abs(rawY) < floor
+            let y = limited ? (rawY < 0 ? -floor : floor) : rawY
+            return Linearized(value: k * x / y + comp.param("outOffset"),
+                              partials: [k * xg / y, limited ? 0 : -k * x * yg / (y * y)])
         case .multiplierBlock:
             // V(out) = K·[xg·(X + xo)]·[yg·(Y + yo)] + output offset
             let k = comp.value, xg = comp.param("xGain"), yg = comp.param("yGain")
@@ -93,6 +107,8 @@ public enum ControlBlocks {
         let out = nodes.last ?? "0"
         switch comp.kind {
         // <spice>
+        case .dividerBlock:
+            return "B\(name) \(out) 0 V={\(comp.value)*(\(comp.param("xGain"))*(\(ins[0])+\(comp.param("xOffset"))))/(\(comp.param("yGain"))*(\(ins[1])+\(comp.param("yOffset"))))+\(comp.param("outOffset"))}"
         case .multiplierBlock:
             return "B\(name) \(out) 0 V={\(comp.value)*(\(comp.param("xGain"))*(\(ins[0])+\(comp.param("xOffset"))))*(\(comp.param("yGain"))*(\(ins[1])+\(comp.param("yOffset"))))+\(comp.param("outOffset"))}"
         case .gainBlock:

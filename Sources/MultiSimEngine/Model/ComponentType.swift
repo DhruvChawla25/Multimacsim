@@ -83,6 +83,7 @@ public enum ComponentKind: String, Codable, CaseIterable {
     case vcoTriangle = "Voltage-Controlled Triangle Wave"
     case gainBlock = "Voltage Gain Block"
     case multiplierBlock = "Voltage Multiplier"
+    case dividerBlock = "Voltage Divider Block"
     // Probes
     case probe = "Voltage Probe"
 }
@@ -162,6 +163,8 @@ extension ComponentKind {
             return .controlFunctionBlocks
         case .multiplierBlock:
             return .controlFunctionBlocks
+        case .dividerBlock:
+            return .controlFunctionBlocks
         case .probe:
             return .probes
         }
@@ -231,6 +234,7 @@ extension ComponentKind {
         case .vcoSine, .vcoSquare, .vcoTriangle: return "VCO"
         case .gainBlock: return "A"
         case .multiplierBlock: return "A"
+        case .dividerBlock: return "A"
         case .probe: return "P"
         }
     }
@@ -307,6 +311,7 @@ extension ComponentKind {
         case .vcoTriangle: return "Voltage-Controlled Triangle"
         case .gainBlock: return "Gain Block (K)"
         case .multiplierBlock: return "Multiplier (X·Y)"
+        case .dividerBlock: return "Divider (X / Y)"
         case .probe: return "Voltage Probe"
         }
     }
@@ -380,6 +385,7 @@ extension ComponentKind {
         case .vcoTriangle: return "triangle.bottomhalf.filled"
         case .gainBlock: return "multiply.circle"
         case .multiplierBlock: return "xmark.circle"
+        case .dividerBlock: return "divide.circle"
         case .probe: return "pin"
         }
     }
@@ -579,6 +585,7 @@ extension ComponentKind {
         case .vcoSine, .vcoSquare, .vcoTriangle: return PartDefaults(value: 1, secondaryValue: 1000)
         case .gainBlock: return PartDefaults(value: 2)
         case .multiplierBlock: return PartDefaults(value: 1)
+        case .dividerBlock: return PartDefaults(value: 1)
         default: return PartDefaults()
         }
     }
@@ -629,6 +636,7 @@ extension ComponentKind {
         case .vcoSine, .vcoSquare, .vcoTriangle: return "Output Amplitude (Vp):"
         case .gainBlock: return "Gain K:"
         case .multiplierBlock: return "Output Gain K:"
+        case .dividerBlock: return "Output Gain K:"
         default: return "Value:"
         }
     }

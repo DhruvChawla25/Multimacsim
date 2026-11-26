@@ -709,6 +709,8 @@ public struct SchematicCanvasView: View {
             return "K = \(String(format: "%.4g", comp.value))"
         case .multiplierBlock:
             return "K = \(String(format: "%.4g", comp.value))"
+        case .dividerBlock:
+            return "K = \(String(format: "%.4g", comp.value))"
         case .multimeter:
             return (MeterMode(rawValue: comp.modeIndex) ?? .voltage).label
         default:

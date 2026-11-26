@@ -48,4 +48,14 @@ final class ControlBlockTests: XCTestCase {
         for _ in 0..<200 { sum += sq.voltage(m.pins[2], solver.step()) }
         XCTAssertEqual(sum / 200, 2.0, accuracy: 1e-3)
     }
+
+    func testDividerAndItsLowerLimit() {
+        let (bench, b, src, _) = block(.dividerBlock, value: 2, inputs: [3, 4])
+        let solver = bench.solver()
+        XCTAssertEqual(output(bench, b, solver.step()), 2 * 3 / 4.0, accuracy: 1e-9)
+        src[1].value = 0 // divide by zero: the denominator is held at 1 µV, never infinite
+        XCTAssertEqual(output(bench, b, solver.step()), 2 * 3 / 1e-6, accuracy: 1)
+        src[1].value = -0.5
+        XCTAssertEqual(output(bench, b, solver.step()), -12, accuracy: 1e-9)
+    }
 }
