@@ -160,3 +160,44 @@ final class ACSteadyStateTests: XCTestCase {
         XCTAssertEqual(reading("W"), 121.5, accuracy: 4)
     }
 }
+
+/// The generalised phasor solver: dependent sources, op-amps, generators and small-signal linearisation.
+final class PhasorGeneralTests: XCTestCase {
+    func testOpAmpInvertingAmplifierPhasor() throws {
+        let bench = TestBench()
+        let v = bench.add(.acVoltageSource, "V1", value: 1, secondary: 1000)
+        let rin = bench.add(.resistor, "Rin", value: 1000)
+        let rf = bench.add(.resistor, "Rf", value: 4700)
+        let u = bench.add(.opAmp, "U1")
+        bench.wire(v.pins[0], rin.pins[0]); bench.wire(rin.pins[1], u.pins[0])
+        bench.wire(u.pins[0], rf.pins[0]); bench.wire(rf.pins[1], u.pins[2])
+        bench.ground(v.pins[1], u.pins[1])
+        let ac = try ACSteadyStateAnalyzer.analyze(bench.circuit).get()
+        let out = ac.nodeVoltage(bench.node(u.pins[2]))
+        XCTAssertEqual(out.magnitude, 4.7, accuracy: 1e-3)
+        XCTAssertEqual(abs(out.angleDegrees), 180, accuracy: 0.01)
+    }
+
+    func testSineFunctionGeneratorDrivesPhasorAnalysis() throws {
+        let bench = TestBench()
+        let g = bench.add(.functionGenerator, "XFG1", value: 2, secondary: 500)
+        let r = bench.add(.resistor, "R1", value: 100)
+        bench.wire(g.pins[0], r.pins[0]); bench.ground(g.pins[1], r.pins[1])
+        let ac = try ACSteadyStateAnalyzer.analyze(bench.circuit).get()
+        XCTAssertEqual(ac.frequency, 500)
+        XCTAssertEqual(ac.sourceCurrent.magnitude, 0.02, accuracy: 1e-9)
+    }
+
+    func testFrequencyOverrideMovesEverySource() throws {
+        let bench = TestBench()
+        let v = bench.add(.acVoltageSource, "V1", value: 1, secondary: 50)
+        let r = bench.add(.resistor, "R1", value: 1000)
+        let c = bench.add(.capacitor, "C1", value: 1e-6)
+        bench.wire(v.pins[0], r.pins[0]); bench.wire(r.pins[1], c.pins[0]); bench.ground(v.pins[1], c.pins[1])
+        let fc = 1 / (2 * Double.pi * 1e-3)
+        let ac = try ACSteadyStateAnalyzer.analyze(bench.circuit, frequency: fc).get()
+        let h = ac.nodeVoltage(bench.node(c.pins[0]))
+        XCTAssertEqual(h.magnitude, 1 / 2.0.squareRoot(), accuracy: 1e-9)
+        XCTAssertEqual(h.angleDegrees, -45, accuracy: 1e-6)
+    }
+}
